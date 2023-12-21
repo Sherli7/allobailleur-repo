@@ -1,0 +1,21 @@
+import 'package:flutter/material.dart';
+
+class SavedPage extends StatefulWidget {
+
+  const SavedPage({super.key});
+
+
+  @override
+  State<SavedPage> createState() => _MySavedPageState();
+}
+
+class _MySavedPageState extends State<SavedPage> {
+  @override
+  Widget build(BuildContext context) {
+    return const Center(
+      child: Text(
+          'Saved Page'
+      ),
+    );
+  }
+}

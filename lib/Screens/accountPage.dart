@@ -87,7 +87,7 @@ class _MyAccountPageState extends State<AccountPage> {
                   height:MediaQuery.of(context).size.height / 9.0,
                   onPressed: _logout,
                   child: const AccountPageListViewItem(
-                    text: 'Logout',
+                    text: 'Log out',
                     iconData: null,
                   ),
                 ),

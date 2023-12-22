@@ -6,6 +6,7 @@ import 'package:rent_house/Screens/guestHomePage.dart';
 import 'package:rent_house/Screens/loginPage.dart';
 import 'package:rent_house/Screens/personalInfoPage.dart';
 import 'package:rent_house/Screens/signUpPage.dart';
+import 'package:rent_house/Screens/viewProfilePage.dart';
 
 void main() {  runApp(const MyApp());}
 class MyApp extends StatelessWidget {
@@ -26,7 +27,7 @@ class MyApp extends StatelessWidget {
         SignUpPage.routeName:(context)=> const SignUpPage(),
         GuestHomePage.routeName:(context)=> const GuestHomePage(),
         PersonalInfoPage.routeName:(context)=>const PersonalInfoPage(),
-
+        ViewProfilePage.routeName:(context)=>const ViewProfilePage(),
       },
     );
   }

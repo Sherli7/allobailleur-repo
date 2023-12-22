@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:rent_house/Screens/loginPage.dart';
 import 'package:rent_house/Screens/personalInfoPage.dart';
+import 'package:rent_house/Screens/viewProfilePage.dart';
 
 class AccountPage extends StatefulWidget {
   //static const String routeName = '/profilePageRoute';
@@ -15,6 +16,7 @@ class _MyAccountPageState extends State<AccountPage> {
   void _logout(){
     Navigator.pushNamed(context, LoginPage.routeName);
   }
+
   @override
   Widget build(BuildContext context) {
     return Padding(
@@ -30,6 +32,7 @@ class _MyAccountPageState extends State<AccountPage> {
               children: <Widget>[
                 MaterialButton(
                   onPressed: () {
+                    Navigator.pushNamed(context, ViewProfilePage.routeName,);
                   },
                   child: CircleAvatar(
                     backgroundColor: Colors.black,

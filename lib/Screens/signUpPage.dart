@@ -40,7 +40,7 @@ class _MySignUpPageState extends State<SignUpPage> {
                 ),
                 Form(
                   child: Column(
-                    children: [
+                    children:<Widget> [
                       Padding(
                         padding: const EdgeInsets.only(top:25.0),
                         child: TextFormField(

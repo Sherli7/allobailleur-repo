@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:rent_house/Screens/guestHomePage.dart';
 import 'package:rent_house/Views/ListWidgets.dart';
 import 'package:rent_house/Views/TextWidgets.dart';
+import 'package:rent_house/Views/formWidgets.dart';
 
 class ViewProfilePage extends StatefulWidget {
   static const String routeName = '/viewProfilePageRoute';
@@ -117,6 +118,10 @@ class _MyViewProfilePageState extends State<ViewProfilePage> {
                       fontWeight: FontWeight.bold,
                     ),
                   ),
+                ),
+                Padding(
+                  padding: const EdgeInsets.only(top: 20.0),
+                  child: ReviewForm(),
                 ),
                 Padding(
                   padding: const EdgeInsets.only(top: 20.0),

@@ -39,7 +39,7 @@ class ReviewListTitleState extends State<ReviewListTitle> {
               itemSize: 30.0, // Size of each star
               itemBuilder: (context, _) => const Icon(
                 Icons.star,
-                color: Colors.amber,
+                color: Colors.deepOrange,
               ),
               onRatingUpdate: (rating) {
                 print(rating);

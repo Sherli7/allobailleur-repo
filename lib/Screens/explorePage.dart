@@ -17,7 +17,7 @@ class MyExplorePageState extends State<ExplorePage> {
       child: SingleChildScrollView(
         child: Column(
               children:<Widget>[
-                Padding(
+                const Padding(
                   padding: EdgeInsets.only(top:10,bottom: 50.0),
                   child: TextField(
                       decoration: InputDecoration(
@@ -38,7 +38,7 @@ class MyExplorePageState extends State<ExplorePage> {
                   ),
                 ),
                 GridView.builder(
-                  physics: ScrollPhysics(),
+                  physics: const ScrollPhysics(),
                   shrinkWrap: true,
                   itemCount: 4,
                   gridDelegate:  const SliverGridDelegateWithFixedCrossAxisCount(

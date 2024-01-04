@@ -29,7 +29,7 @@ class GuestHomePageState extends State<GuestHomePage> {
   final List<Widget> _page=[
     const ExplorePage(),
     const SavedPage(),
-    const TripsPage(),
+     TripsPage(),
     const InboxPage(),
     const AccountPage()
   ];

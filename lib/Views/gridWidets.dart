@@ -41,7 +41,7 @@ class MyPositingGridTileState extends State<PositingGridTile> {
             color: Colors.black,
           ),),
           //SizedBox(height: 1), // Espaceur
-          Text('85000 FCFA / month'),
+          Text('850000 FCFA / month'),
         Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget> [
@@ -63,6 +63,84 @@ class MyPositingGridTileState extends State<PositingGridTile> {
           ],
         ),
         ],
+    );
+  }
+}
+
+class TripGridTile extends StatefulWidget {
+  TripGridTile({super.key});
+
+  @override
+  MyTripGridTileState createState() => MyTripGridTileState();
+}
+
+class MyTripGridTileState extends State<TripGridTile> {
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.spaceAround,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: <Widget>[
+        AspectRatio(
+          aspectRatio: 3/2,
+          child: Container(
+            decoration: BoxDecoration(
+                image: DecorationImage(
+                    image: AssetImage('assets/images/house.jpeg'),
+                    fit: BoxFit.fill
+                )
+            ),
+          ),
+        ),
+        AutoSizeText('Yaounde,YDE',
+          style: TextStyle(
+            fontSize: 15.0,
+            fontWeight: FontWeight.bold,
+            color: Colors.black,
+          ),
+        ),
+        AutoSizeText('Awesome Apartment',
+          style: TextStyle(
+            fontSize: 12.0,
+            color: Colors.black,
+          ),),
+        //SizedBox(height: 1), // Espaceur
+        Text(
+            '850000 FCFA / month',
+        ),
+        Text(
+          'January 10, 2024 -',
+          style: TextStyle(
+              fontWeight: FontWeight.bold
+          ),
+        ),
+        Text(
+          'January 12, 2024',
+          style: TextStyle(
+              fontWeight: FontWeight.bold
+          ),
+        ),
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: <Widget> [
+            RatingBar.builder(
+              initialRating: 4.5,
+              minRating: 1,
+              direction: Axis.horizontal,
+              allowHalfRating: true,
+              itemCount: 5,
+              itemSize: 20.0,
+              itemBuilder: (context, _) =>  Icon(
+                Icons.star,
+                color: AppConstants.toColor('fb5607'),
+              ),
+              onRatingUpdate: (rating) {
+                print(rating);
+              },
+            ),
+          ],
+        ),
+      ],
     );
   }
 }

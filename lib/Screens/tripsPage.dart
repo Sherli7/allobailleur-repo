@@ -1,15 +1,14 @@
 import 'package:flutter/material.dart';
+import 'package:rent_house/Views/gridWidets.dart';
 
 class TripsPage extends StatefulWidget {
-
-  const TripsPage({super.key});
-
+  TripsPage({Key? key}) : super(key: key); // Updated for null safety
 
   @override
-  State<TripsPage> createState() => _MyTripsPageEState();
+  _TripsPageState createState() => _TripsPageState();
 }
 
-class _MyTripsPageEState extends State<TripsPage> {
+class _TripsPageState extends State<TripsPage> {
   @override
   Widget build(BuildContext context) {
     return  Padding(
@@ -18,29 +17,52 @@ class _MyTripsPageEState extends State<TripsPage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget> [
-            Padding(
-              padding: const EdgeInsets.only(top:25.0),
-              child: const Text('Upcoming Trips',
-                style: TextStyle(
-                    fontSize: 25,
-                    fontWeight: FontWeight.bold
-                ),),
-            ),
-           Padding(
-             padding: const EdgeInsets.only(top:15,bottom: 25.0),
-             child: Container(
-                height: MediaQuery.of(context).size.height/3,
-              ),
-           ),
-            Text('Previous Trips',
+            Text('Upcoming Trips',
               style: TextStyle(
-                  fontSize: 25,
-                  fontWeight: FontWeight.bold
+                fontSize: 25,
+                fontWeight: FontWeight.bold,
               ),),
             Padding(
               padding: const EdgeInsets.only(top:15,bottom: 25.0),
               child: Container(
                 height: MediaQuery.of(context).size.height/3,
+                child: ListView.builder(
+                  itemBuilder: (context,index){
+                    return Padding(
+                      padding: const EdgeInsets.only(right:25.0),
+                      child: Container(
+                        width: MediaQuery.of(context).size.width/2.5,
+                        child: TripGridTile(),
+                      ),
+                    );
+                  },
+                  itemCount: 3,
+                  scrollDirection: Axis.horizontal,
+                  shrinkWrap: true,),
+              ),
+            ),
+            Text('Previous Trips',
+              style: TextStyle(
+                fontSize: 25,
+                fontWeight: FontWeight.bold,
+              ),),
+            Padding(
+              padding: const EdgeInsets.only(top:15,bottom: 25.0),
+              child: Container(
+                height: MediaQuery.of(context).size.height/3,
+                child: ListView.builder(
+                  itemBuilder: (context,index){
+                    return Padding(
+                      padding: const EdgeInsets.only(right:25.0),
+                      child: Container(
+                        width: MediaQuery.of(context).size.width/2.5,
+                        child: TripGridTile(),
+                      ),
+                    );
+                  },
+                  itemCount: 2,
+                  scrollDirection: Axis.horizontal,
+                  shrinkWrap: true,),
               ),
             ),
           ],

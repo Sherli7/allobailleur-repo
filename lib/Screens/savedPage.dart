@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rent_house/Screens/viewPostingPage.dart';
 
 import '../Views/gridWidets.dart';
 
@@ -29,7 +30,17 @@ class _MySavedPageState extends State<SavedPage> {
         itemBuilder: (context,index){
           return Stack(
             children: [
-              PositingGridTile(),
+            InkResponse(
+            enableFeedback: true,
+            child: PositingGridTile(),
+            onTap: () {
+              // Replace 'routeName' with your actual route name
+              Navigator.pushNamed(
+                context,
+                ViewPostingPage.routeName,
+              );
+            },
+          ),
               Align(
                 alignment: Alignment.topRight,
                 child: Padding(

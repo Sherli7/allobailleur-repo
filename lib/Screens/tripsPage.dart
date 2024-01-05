@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rent_house/Screens/viewPostingPage.dart';
 import 'package:rent_house/Views/gridWidets.dart';
 
 class TripsPage extends StatefulWidget {
@@ -32,7 +33,17 @@ class _TripsPageState extends State<TripsPage> {
                       padding: const EdgeInsets.only(right:25.0),
                       child: Container(
                         width: MediaQuery.of(context).size.width/2.5,
-                        child: TripGridTile(),
+                        child: InkResponse(
+                          enableFeedback: true,
+                          child: TripGridTile(),
+                          onTap: () {
+                            // Replace 'routeName' with your actual route name
+                            Navigator.pushNamed(
+                              context,
+                              ViewPostingPage.routeName,
+                            );
+                          },
+                        ),
                       ),
                     );
                   },
@@ -56,7 +67,17 @@ class _TripsPageState extends State<TripsPage> {
                       padding: const EdgeInsets.only(right:25.0),
                       child: Container(
                         width: MediaQuery.of(context).size.width/2.5,
-                        child: TripGridTile(),
+                        child: InkResponse(
+                          enableFeedback: true,
+                          child: TripGridTile(),
+                          onTap: () {
+                            // Replace 'routeName' with your actual route name
+                            Navigator.pushNamed(
+                              context,
+                              ViewPostingPage.routeName,
+                            );
+                          },
+                        ),
                       ),
                     );
                   },

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:rent_house/Models/AppConstants.dart';
+
+import '../Models/AppConstants.dart';
 
 class CalendarMonthWidget extends StatefulWidget{
   final int montIndex;
@@ -11,15 +12,34 @@ class CalendarMonthWidget extends StatefulWidget{
 }
 
 class _CalendarMonthState extends State<CalendarMonthWidget> {
-  late List<MonthTile> _monthtile;
+  List<MonthTile> _monthtile = [];
+  late int _currentMonthInt;
+  late int _currentYearInt;
 
   @override
   void initState() {
-    _monthtile = [];
     super.initState();
-    // Assuming each month has 30 days for simplicity. Update this logic based on actual month length.
-    for (int i = 0; i < 31; i++) {
-      _monthtile.add(MonthTile(date: DateTime.now()));
+    _currentMonthInt = ((DateTime.now().month + widget.montIndex - 1) % 12) + 1;
+    _currentYearInt = DateTime.now().year;
+    if (_currentMonthInt < DateTime.now().month) {
+      _currentYearInt++;
+    }
+    _setUpMonthTile();
+  }
+
+  void _setUpMonthTile() {
+    int daysInMonth = AppConstants.daysInMonths[_currentMonthInt]!;
+    DateTime firstDayOfMonth = DateTime(_currentYearInt, _currentMonthInt, 1);
+    int firstWeekDayOfMonth = firstDayOfMonth.weekday;
+
+    _monthtile.clear();
+    if (firstDayOfMonth.weekday != 7) {
+      for (int i = 0; i < firstWeekDayOfMonth; i++) {
+        _monthtile.add(MonthTile(date: null));
+      }
+    }
+    for (int i = 1; i <= daysInMonth; i++) {
+      _monthtile.add(MonthTile(date: DateTime(_currentYearInt, _currentMonthInt, i)));
     }
   }
 
@@ -27,16 +47,23 @@ class _CalendarMonthState extends State<CalendarMonthWidget> {
   Widget build(BuildContext context) {
     return Column(
       children: <Widget>[
-        Text('August'), // Replace with actual month name
+        Padding(
+          padding: const EdgeInsets.only(bottom: 20.0),
+          child: Text("${AppConstants.monthDict[_currentMonthInt]!} - $_currentYearInt"),
+        ),
         GridView.builder(
-          itemCount: 31, // Updated to match the length of _monthtile
+          itemCount: _monthtile.length,
           shrinkWrap: true,
-          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: 7,
             childAspectRatio: 1 / 1,
           ),
           itemBuilder: (context, index) {
-            return _monthtile[index]; // Directly return the MonthTile
+            MonthTile monthTile = _monthtile[index];
+            return MaterialButton(
+              onPressed: () {},
+              child: monthTile,
+            );
           },
         ),
       ],
@@ -44,18 +71,13 @@ class _CalendarMonthState extends State<CalendarMonthWidget> {
   }
 }
 
-
-
 class MonthTile extends StatelessWidget {
-
-  final DateTime date;
+  final DateTime? date; // Made nullable
 
   MonthTile({super.key, required this.date});
 
   @override
   Widget build(BuildContext context) {
-    return Text(this.date == null ? "" : date.day.toString());
+    return Text(date == null ? "" : date!.day.toString());
   }
-
-
 }

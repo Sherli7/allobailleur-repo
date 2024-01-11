@@ -60,3 +60,48 @@ class ReviewListTitleState extends State<ReviewListTitle> {
     );
   }
 }
+
+class ConversationListTile extends StatefulWidget{
+
+  ConversationListTile({super.key});
+
+
+  @override
+  State<ConversationListTile> createState() => ConversationListTileState();
+
+
+}
+
+class ConversationListTileState extends State<ConversationListTile>{
+
+  @override
+  Widget build(BuildContext context) {
+   return ListTile(
+     leading: CircleAvatar(
+       backgroundImage: AssetImage('assets/images/defaultAvatar.jpg'),
+       radius: MediaQuery.of(context).size.width/13.0,
+     ),
+     title: Text(
+       'Lionel',
+       style: TextStyle(
+         fontSize: 22.5,
+         fontWeight: FontWeight.bold
+       ),
+     ),
+     subtitle: Text(
+       'Hey, How\'s it going?',
+       style:TextStyle(
+           fontSize: 20.0,
+       ),
+     ),
+     trailing: Text(
+       '30 Août',
+       style:TextStyle(
+         fontSize: 20.0,
+       ),
+     ),
+     contentPadding: EdgeInsets.fromLTRB(25.0,15.0,25.0,15.0),
+   );
+  }
+
+}

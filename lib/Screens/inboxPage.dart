@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rent_house/Views/ListWidgets.dart';
 
 class InboxPage extends StatefulWidget {
 
@@ -12,9 +13,14 @@ class InboxPage extends StatefulWidget {
 class _MyInboxPageState extends State<InboxPage> {
   @override
   Widget build(BuildContext context) {
-    return const Center(
-      child: Text(
-          'Inbox Page'
+    return Padding(
+      padding: const EdgeInsets.only(top:15.0),
+      child: ListView.builder(
+          itemCount: 2,
+          itemExtent: MediaQuery.of(context).size.height/7,
+          itemBuilder: (context,index){
+            return ConversationListTile();
+          },
       ),
     );
   }

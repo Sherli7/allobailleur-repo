@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:rent_house/Views/ListWidgets.dart';
 
+import 'conversationPage.dart';
+
 class InboxPage extends StatefulWidget {
 
   const InboxPage({super.key});
@@ -19,7 +21,14 @@ class _MyInboxPageState extends State<InboxPage> {
           itemCount: 2,
           itemExtent: MediaQuery.of(context).size.height/7,
           itemBuilder: (context,index){
-            return ConversationListTile();
+            return InkResponse(
+              child: ConversationListTilePage(),
+            onTap: (){
+              Navigator.pushNamed(
+                  context,
+                ConversationPage.routeName,
+              );
+            },);
           },
       ),
     );

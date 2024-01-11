@@ -9,6 +9,9 @@ import 'package:rent_house/Screens/personalInfoPage.dart';
 import 'package:rent_house/Screens/signUpPage.dart';
 import 'package:rent_house/Screens/viewPostingPage.dart';
 import 'package:rent_house/Screens/viewProfilePage.dart';
+import 'package:rent_house/Views/ListWidgets.dart';
+
+import 'conversationPage.dart';
 
 void main() {  runApp(const MyApp());}
 class MyApp extends StatelessWidget {
@@ -32,6 +35,8 @@ class MyApp extends StatelessWidget {
         ViewProfilePage.routeName:(context)=>const ViewProfilePage(),
         ViewPostingPage.routeName:(context)=> const ViewPostingPage(),
         BookPostingPage.routeName:(context)=> const BookPostingPage(),
+        ConversationPage.routeName:(context)=> const ConversationPage(),
+
       },
     );
   }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
+import 'package:rent_house/Screens/viewProfilePage.dart';
 
 class ReviewListTitle extends StatefulWidget {
   const ReviewListTitle({required Key key}) : super(key: key);
@@ -61,25 +62,30 @@ class ReviewListTitleState extends State<ReviewListTitle> {
   }
 }
 
-class ConversationListTile extends StatefulWidget{
+class ConversationListTilePage extends StatefulWidget{
 
-  ConversationListTile({super.key});
+  ConversationListTilePage({super.key});
 
 
   @override
-  State<ConversationListTile> createState() => ConversationListTileState();
+  State<ConversationListTilePage> createState() => ConversationListTileState();
 
 
 }
 
-class ConversationListTileState extends State<ConversationListTile>{
+class ConversationListTileState extends State<ConversationListTilePage>{
 
   @override
   Widget build(BuildContext context) {
    return ListTile(
-     leading: CircleAvatar(
-       backgroundImage: AssetImage('assets/images/defaultAvatar.jpg'),
-       radius: MediaQuery.of(context).size.width/13.0,
+     leading: GestureDetector(
+       onTap: (){
+         Navigator.pushNamed(context, ViewProfilePage.routeName);
+       },
+       child: CircleAvatar(
+         backgroundImage: AssetImage('assets/images/defaultAvatar.jpg'),
+         radius: MediaQuery.of(context).size.width/13.0,
+       ),
      ),
      title: Text(
        'Lionel',

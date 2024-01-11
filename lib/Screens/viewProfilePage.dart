@@ -40,7 +40,7 @@ class _MyViewProfilePageState extends State<ViewProfilePage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: <Widget>[
-                   Container(
+                   SizedBox(
                       width: MediaQuery.of(context).size.width * 3/5,
                       child: const AutoSizeText(
                         'Hi my name is Sherli7',
@@ -119,8 +119,8 @@ class _MyViewProfilePageState extends State<ViewProfilePage> {
                     ),
                   ),
                 ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 20.0),
+                const Padding(
+                  padding: EdgeInsets.only(top: 20.0),
                   child: ReviewForm(),
                 ),
                 Padding(

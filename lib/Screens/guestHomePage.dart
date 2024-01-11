@@ -10,7 +10,7 @@ import 'package:rent_house/Views/TextWidgets.dart';
 class GuestHomePage extends StatefulWidget {
   static const String routeName = 'loginPageRoute';
 
-  const GuestHomePage({Key? key}) : super(key: key); // Changed to optional key
+  const GuestHomePage({super.key}); // Changed to optional key
 
   @override
   GuestHomePageState createState() => GuestHomePageState();
@@ -29,7 +29,7 @@ class GuestHomePageState extends State<GuestHomePage> {
   final List<Widget> _page=[
     const ExplorePage(),
     const SavedPage(),
-     TripsPage(),
+     const TripsPage(),
     const InboxPage(),
     const AccountPage()
   ];

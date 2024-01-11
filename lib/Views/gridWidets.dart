@@ -4,7 +4,7 @@ import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:rent_house/Models/AppConstants.dart';
 
 class PositingGridTile extends StatefulWidget {
-  PositingGridTile({super.key});
+  const PositingGridTile({super.key});
 
   @override
   MyPositingGridTileState createState() => MyPositingGridTileState();
@@ -20,7 +20,7 @@ class MyPositingGridTileState extends State<PositingGridTile> {
            AspectRatio(
             aspectRatio: 3/2,
             child: Container(
-              decoration: BoxDecoration(
+              decoration: const BoxDecoration(
                 image: DecorationImage(
                   image: AssetImage('assets/images/house.jpeg'),
                   fit: BoxFit.fill
@@ -28,20 +28,20 @@ class MyPositingGridTileState extends State<PositingGridTile> {
               ),
             ),
           ),
-          AutoSizeText('Apartement - Yaounde,YDE',
+          const AutoSizeText('Apartement - Yaounde,YDE',
             style: TextStyle(
               fontSize: 15.0,
               fontWeight: FontWeight.bold,
               color: Colors.black,
             ),
           ),
-          AutoSizeText('Awesome Apartment',
+          const AutoSizeText('Awesome Apartment',
             style: TextStyle(
             fontSize: 12.0,
             color: Colors.black,
           ),),
           //SizedBox(height: 1), // Espaceur
-          Text('850000 FCFA / month'),
+          const Text('850000 FCFA / month'),
         Row(
           mainAxisSize: MainAxisSize.min,
           children: <Widget> [
@@ -68,7 +68,7 @@ class MyPositingGridTileState extends State<PositingGridTile> {
 }
 
 class TripGridTile extends StatefulWidget {
-  TripGridTile({super.key});
+  const TripGridTile({super.key});
 
   @override
   MyTripGridTileState createState() => MyTripGridTileState();
@@ -84,7 +84,7 @@ class MyTripGridTileState extends State<TripGridTile> {
         AspectRatio(
           aspectRatio: 3/2,
           child: Container(
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
                 image: DecorationImage(
                     image: AssetImage('assets/images/house.jpeg'),
                     fit: BoxFit.fill
@@ -92,29 +92,29 @@ class MyTripGridTileState extends State<TripGridTile> {
             ),
           ),
         ),
-        AutoSizeText('Yaounde,YDE',
+        const AutoSizeText('Yaounde,YDE',
           style: TextStyle(
             fontSize: 15.0,
             fontWeight: FontWeight.bold,
             color: Colors.black,
           ),
         ),
-        AutoSizeText('Awesome Apartment',
+        const AutoSizeText('Awesome Apartment',
           style: TextStyle(
             fontSize: 12.0,
             color: Colors.black,
           ),),
         //SizedBox(height: 1), // Espaceur
-        Text(
+        const Text(
             '850000 FCFA / month',
         ),
-        Text(
+        const Text(
           'January 10, 2024 -',
           style: TextStyle(
               fontWeight: FontWeight.bold
           ),
         ),
-        Text(
+        const Text(
           'January 12, 2024',
           style: TextStyle(
               fontWeight: FontWeight.bold

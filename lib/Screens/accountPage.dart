@@ -108,7 +108,7 @@ class AccountPageListViewItem extends StatelessWidget {
   final String text;
   final IconData? iconData;  // Make IconData nullable
 
-  const AccountPageListViewItem({Key? key, required this.text, this.iconData}) : super(key: key);
+  const AccountPageListViewItem({super.key, required this.text, this.iconData});
 
   @override
   Widget build(BuildContext context) {

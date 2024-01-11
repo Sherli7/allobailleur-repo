@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
-import 'package:rent_house/Models/AppConstants.dart';
 
 class ReviewForm extends StatefulWidget {  @override
 
@@ -62,8 +61,8 @@ class ReviewFormState extends State<ReviewForm>{
            ),
            MaterialButton(
              onPressed: (){},
-             child: const Text('Submit'),
              color: Colors.lightBlue,
+             child: const Text('Submit'),
            ),
          ],
        ),

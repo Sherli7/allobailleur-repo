@@ -7,7 +7,7 @@ import 'package:rent_house/Views/TextWidgets.dart';
 class LoginPage extends StatefulWidget {
   static const String routeName = '/loginPageRoute';
 
-  const LoginPage({Key? key, required this.title}) : super(key: key);
+  const LoginPage({super.key, required this.title});
   final String title;
 
   @override

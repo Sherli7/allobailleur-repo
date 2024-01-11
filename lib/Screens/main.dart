@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:rent_house/Models/AppConstants.dart';
+import 'package:rent_house/Screens/BookPostingPage.dart';
 import 'package:rent_house/Screens/guestHomePage.dart';
 import 'package:rent_house/Screens/loginPage.dart';
 import 'package:rent_house/Screens/personalInfoPage.dart';
@@ -30,6 +31,7 @@ class MyApp extends StatelessWidget {
         PersonalInfoPage.routeName:(context)=>const PersonalInfoPage(),
         ViewProfilePage.routeName:(context)=>const ViewProfilePage(),
         ViewPostingPage.routeName:(context)=> const ViewPostingPage(),
+        BookPostingPage.routeName:(context)=> const BookPostingPage(),
       },
     );
   }

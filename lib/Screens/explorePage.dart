@@ -17,7 +17,7 @@ class MyExplorePageState extends State<ExplorePage> {
       child: SingleChildScrollView(
         child: Column(
           children: <Widget>[
-            Padding(
+            const Padding(
               padding: EdgeInsets.only(top: 10, bottom: 50.0),
               child: TextField(
                 decoration: InputDecoration(
@@ -41,7 +41,7 @@ class MyExplorePageState extends State<ExplorePage> {
               physics: const ScrollPhysics(),
               shrinkWrap: true,
               itemCount: 4,
-              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
                 crossAxisSpacing: 15,
                 mainAxisSpacing: 15,
@@ -50,7 +50,7 @@ class MyExplorePageState extends State<ExplorePage> {
               itemBuilder: (context, index) {
                 return InkResponse(
                   enableFeedback: true,
-                  child: PositingGridTile(),
+                  child: const PositingGridTile(),
                   onTap: () {
                     // Replace 'routeName' with your actual route name
                     Navigator.pushNamed(

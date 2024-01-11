@@ -8,7 +8,7 @@ class AppConstants {
     return Color(int.parse(buffer.toString(), radix: 16));
   }
 
-  static const String AndroidAPIKey = "AIzaSyD7fDd1gKzRReOu8q_unDymCBIhD6BkLMI";
+  static const String googleMapsAPIKey = "AIzaSyA9N4US-35zEuRemX0ppXCRtSsOiHgG5T0";
   static const String appName = 'Allô Bailleur';
   static final Color selectedIconColor = toColor('f95738');
   static final Color nonselectedIconColor = toColor('0a0908');

@@ -84,7 +84,7 @@ class ConversationListTileState extends State<ConversationListTilePage>{
        },
        child: CircleAvatar(
          backgroundImage: AssetImage('assets/images/defaultAvatar.jpg'),
-         radius: MediaQuery.of(context).size.width/13.0,
+         radius: MediaQuery.of(context).size.width/14.0,
        ),
      ),
      title: Text(
@@ -110,4 +110,116 @@ class ConversationListTileState extends State<ConversationListTilePage>{
    );
   }
 
+}
+
+
+class MessageListTile extends StatelessWidget{
+  MessageListTile({super.key});
+  @override
+  Widget build(BuildContext context) {
+/*   return Padding(
+      padding: const EdgeInsets.fromLTRB(15,15,35,15),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: <Widget>[
+          GestureDetector(
+            onTap: (){
+              Navigator.pushNamed(context,
+                ViewProfilePage.routeName
+              );
+            },
+            child: CircleAvatar(
+              backgroundImage: AssetImage('assets/images/defaultAvatar.jpg'),
+              radius: MediaQuery.of(context).size.width/20,
+            ),
+          ),
+          Flexible(
+            child: Padding(
+              padding: const EdgeInsets.only(left: 15),
+              child: Container(
+                padding: const EdgeInsets.all(15.0),
+                decoration: BoxDecoration(
+                  color: Colors.yellow,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.max,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10.0),
+                      child: Text(
+                          'This is really long message that is supposed to test the proper message functionality and make sure thant everything is working and wrapping properly.',
+                          style: TextStyle(
+                            fontSize: 15.0,
+                          ),
+                          textWidthBasis: TextWidthBasis.parent,
+                      ),
+                    ),
+                    Align(
+                      alignment: Alignment.bottomRight,
+                      child: Text('10 janvier')),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );*/
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(35,15,15,15),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: <Widget>[
+          Flexible(
+            child: Padding(
+              padding: const EdgeInsets.only(right: 10),
+              child: Container(
+                padding: const EdgeInsets.all(15.0),
+                decoration: BoxDecoration(
+                  color: Colors.blue,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.max,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10.0),
+                      child: Text(
+                        'This is really long message that is supposed to test the proper message functionality and make sure thant everything is working and wrapping properly.',
+                        style: TextStyle(
+                          fontSize: 15.0,
+                        ),
+                        textWidthBasis: TextWidthBasis.parent,
+                      ),
+                    ),
+                    Align(
+                        alignment: Alignment.bottomRight,
+                        child: Text('10 janvier')),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          GestureDetector(
+            onTap: (){
+              Navigator.pushNamed(context,
+                  ViewProfilePage.routeName
+              );
+            },
+            child: CircleAvatar(
+              backgroundImage: AssetImage('assets/images/defaultAvatar.jpg'),
+              radius: MediaQuery.of(context).size.width/20,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+  
 }

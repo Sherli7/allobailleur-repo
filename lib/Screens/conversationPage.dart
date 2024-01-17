@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:rent_house/Views/ListWidgets.dart';
 import 'package:rent_house/Views/TextWidgets.dart';
 
 class ConversationPage extends StatefulWidget {
@@ -22,45 +23,43 @@ class ConversationPageState extends State<ConversationPage> {
       ),
       body: Column(
         children: <Widget>[
-          //ListView.builder(itemBuilder: itemBuilder)
-          Expanded(child: Container(),),
-
-         Container(
-           decoration: BoxDecoration(
-             border: Border.all(
-               color: Colors.black,
-             )
-           ),
-           child: Row(
-             mainAxisSize: MainAxisSize.max,
-             children: <Widget>[
-               Container(
-                 width: MediaQuery.of(context).size.width*5/6,
-                 child: TextField(
-                   decoration: InputDecoration(
-                     hintText: 'Write a message',
-                     contentPadding: EdgeInsets.all(20.0),
-                     border: InputBorder.none
-                   ),
-                   minLines: 1,
-                   maxLines: 5,
-                   style: TextStyle(
-                     fontSize: 20.0
-                   ),
-                 ),
-               ),
-               Expanded(
-                 child: MaterialButton(onPressed: (){},
-                 child: Text(
-                   'Send',
-                 ),
-                 ),
-               )
-             ],
-           ),
-         )
+          Expanded(
+            child: ListView.builder(
+              itemCount: 3,
+              itemBuilder: (context, index) {
+                return MessageListTile();
+              },
+            ),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.black),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.max,
+              children: <Widget>[
+                Expanded(
+                  child: TextField(
+                    decoration: InputDecoration(
+                      hintText: 'Write a message',
+                      contentPadding: EdgeInsets.all(20.0),
+                      border: InputBorder.none,
+                    ),
+                    minLines: 1,
+                    maxLines: 5,
+                    style: TextStyle(fontSize: 20.0),
+                  ),
+                ),
+                MaterialButton(
+                  onPressed: (){},
+                  child: Text('Send'),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
   }
 }
+

@@ -250,6 +250,16 @@ class _CreatePropertyPageState extends State<CreatePropertyPage> {
 
       // Show progress dialog for image upload
       if (_selectedImages.isNotEmpty) {
+        // Temporarily skip storage test to avoid initialization issues
+        debugPrint('Skipping storage connection test for now');
+
+        // Debug: Check authentication status
+        final authProvider =
+            Provider.of<app_auth.AuthProvider>(context, listen: false);
+        debugPrint('User authenticated: ${authProvider.firebaseUser != null}');
+        debugPrint('User ID: ${authProvider.firebaseUser?.uid}');
+        debugPrint('Number of images to upload: ${_selectedImages.length}');
+
         showDialog(
           context: context,
           barrierDismissible: false,
@@ -264,6 +274,9 @@ class _CreatePropertyPageState extends State<CreatePropertyPage> {
                     LinearProgressIndicator(value: progress),
                     const SizedBox(height: 16),
                     Text('${(progress * 100).toInt()}% terminé'),
+                    const SizedBox(height: 8),
+                    Text('Ne fermez pas cette fenêtre',
+                        style: TextStyle(fontSize: 12, color: Colors.grey)),
                   ],
                 ),
               );

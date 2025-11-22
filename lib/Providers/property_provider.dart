@@ -188,31 +188,71 @@ class PropertyService {
     void Function(double) onProgress,
   ) async {
     try {
-      debugPrint('Starting image upload for property: $propertyId');
-      final ref = _storage.ref().child(
-          'properties/$propertyId/${DateTime.now().millisecondsSinceEpoch}.jpg');
+      debugPrint('=== Starting image upload process ===');
+      debugPrint('Property ID: $propertyId');
+      debugPrint('File type: ${file.runtimeType}');
+
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final ref = _storage.ref().child('properties/$propertyId/$fileName');
+
+      debugPrint('Storage reference created: ${ref.fullPath}');
+
+      // Test basic storage connectivity
+      try {
+        await ref.getDownloadURL();
+        debugPrint('Storage reference is accessible');
+      } catch (e) {
+        debugPrint('Storage reference test failed (expected for new file): $e');
+      }
 
       UploadTask uploadTask;
 
       if (file is XFile) {
         debugPrint('Handling XFile upload');
-        try {
-          // Handle XFile from image_picker
-          final bytes = await file.readAsBytes();
-          debugPrint('Read ${bytes.length} bytes from XFile');
-          uploadTask = ref.putData(
-            bytes,
-            SettableMetadata(contentType: 'image/jpeg'),
-          );
-        } catch (e) {
-          debugPrint(
-              'Failed to read XFile as bytes, trying alternative approach: $e');
-          // Fallback: try to upload using the file path as a data URL
-          if (file.path.startsWith('data:') || file.path.startsWith('blob:')) {
+        debugPrint('XFile path: ${file.path}');
+        debugPrint('XFile mimeType: ${file.mimeType}');
+
+        // On web, XFile.path might be a blob URL or data URL
+        if (file.path.startsWith('blob:') || file.path.startsWith('data:')) {
+          debugPrint('Detected web blob/data URL');
+          try {
+            // For web blob URLs, try to read as bytes first
+            final bytes = await file.readAsBytes();
             debugPrint(
-                'XFile path appears to be a data/blob URL, skipping upload');
-            return null; // Skip this file for now
-          } else {
+                'Successfully read ${bytes.length} bytes from web XFile');
+            uploadTask = ref.putData(
+              bytes,
+              SettableMetadata(
+                contentType: file.mimeType ?? 'image/jpeg',
+              ),
+            );
+          } catch (e) {
+            debugPrint('Failed to read web XFile bytes: $e');
+            // If reading bytes fails, try putString for data URLs
+            if (file.path.startsWith('data:')) {
+              debugPrint('Trying putString for data URL');
+              uploadTask = ref.putString(
+                file.path,
+                format: PutStringFormat.dataUrl,
+                metadata: SettableMetadata(
+                    contentType: file.mimeType ?? 'image/jpeg'),
+              );
+            } else {
+              debugPrint('Cannot handle blob URL, skipping upload');
+              return null;
+            }
+          }
+        } else {
+          // Regular file path (mobile)
+          try {
+            final bytes = await file.readAsBytes();
+            debugPrint('Read ${bytes.length} bytes from mobile XFile');
+            uploadTask = ref.putData(
+              bytes,
+              SettableMetadata(contentType: file.mimeType ?? 'image/jpeg'),
+            );
+          } catch (e) {
+            debugPrint('Failed to read mobile XFile as bytes: $e');
             rethrow;
           }
         }
@@ -233,10 +273,13 @@ class PropertyService {
 
       uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
         final progress = snapshot.bytesTransferred / snapshot.totalBytes;
-        debugPrint('Upload progress: ${(progress * 100).toInt()}%');
+        debugPrint(
+            'Upload progress: ${(progress * 100).toInt()}% (${snapshot.bytesTransferred}/${snapshot.totalBytes} bytes)');
         onProgress(progress);
       }, onError: (error) {
         debugPrint('Upload error in stream: $error');
+      }, onDone: () {
+        debugPrint('Upload stream completed');
       });
 
       debugPrint('Waiting for upload task to complete...');
@@ -244,15 +287,16 @@ class PropertyService {
         const Duration(minutes: 5),
         onTimeout: () {
           debugPrint('Upload timeout after 5 minutes');
-          throw TimeoutException('Upload timeout');
+          throw TimeoutException('Upload timeout after 5 minutes');
         },
       );
-      debugPrint('Upload task completed, getting download URL...');
+      debugPrint('Upload task completed successfully');
+      debugPrint('Getting download URL...');
       final downloadUrl = await snapshot.ref.getDownloadURL().timeout(
         const Duration(seconds: 30),
         onTimeout: () {
           debugPrint('Download URL timeout after 30 seconds');
-          throw TimeoutException('Download URL timeout');
+          throw TimeoutException('Download URL retrieval timeout');
         },
       );
       debugPrint('Download URL obtained: $downloadUrl');

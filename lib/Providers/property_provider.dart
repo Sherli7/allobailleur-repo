@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:rent_house/Models/property.dart';
 import 'package:flutter/material.dart';
 // import 'package:intl/intl.dart'; // Pour dates (supprimé car inutilisé)
@@ -180,25 +183,83 @@ class PropertyService {
 
   /// EXISTANT: Upload image avec progress (retourne URL)
   Future<String?> uploadImageWithProgress(
-    dynamic file, // File ou Uint8List
+    dynamic file, // File, XFile, or Uint8List
     String propertyId,
     void Function(double) onProgress,
   ) async {
     try {
+      debugPrint('Starting image upload for property: $propertyId');
       final ref = _storage.ref().child(
           'properties/$propertyId/${DateTime.now().millisecondsSinceEpoch}.jpg');
-      final uploadTask =
-          ref.putFile(File(file.path)); // Assume File ; adapte si Uint8List
+
+      UploadTask uploadTask;
+
+      if (file is XFile) {
+        debugPrint('Handling XFile upload');
+        try {
+          // Handle XFile from image_picker
+          final bytes = await file.readAsBytes();
+          debugPrint('Read ${bytes.length} bytes from XFile');
+          uploadTask = ref.putData(
+            bytes,
+            SettableMetadata(contentType: 'image/jpeg'),
+          );
+        } catch (e) {
+          debugPrint(
+              'Failed to read XFile as bytes, trying alternative approach: $e');
+          // Fallback: try to upload using the file path as a data URL
+          if (file.path.startsWith('data:') || file.path.startsWith('blob:')) {
+            debugPrint(
+                'XFile path appears to be a data/blob URL, skipping upload');
+            return null; // Skip this file for now
+          } else {
+            rethrow;
+          }
+        }
+      } else if (file is File) {
+        debugPrint('Handling File upload');
+        // Handle regular File
+        uploadTask = ref.putFile(file);
+      } else if (file is Uint8List) {
+        debugPrint('Handling Uint8List upload');
+        // Handle raw bytes
+        uploadTask = ref.putData(
+          file,
+          SettableMetadata(contentType: 'image/jpeg'),
+        );
+      } else {
+        throw UnsupportedError('Unsupported file type: ${file.runtimeType}');
+      }
 
       uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
         final progress = snapshot.bytesTransferred / snapshot.totalBytes;
+        debugPrint('Upload progress: ${(progress * 100).toInt()}%');
         onProgress(progress);
+      }, onError: (error) {
+        debugPrint('Upload error in stream: $error');
       });
 
-      final snapshot = await uploadTask;
-      return await snapshot.ref.getDownloadURL();
-    } catch (e) {
+      debugPrint('Waiting for upload task to complete...');
+      final snapshot = await uploadTask.timeout(
+        const Duration(minutes: 5),
+        onTimeout: () {
+          debugPrint('Upload timeout after 5 minutes');
+          throw TimeoutException('Upload timeout');
+        },
+      );
+      debugPrint('Upload task completed, getting download URL...');
+      final downloadUrl = await snapshot.ref.getDownloadURL().timeout(
+        const Duration(seconds: 30),
+        onTimeout: () {
+          debugPrint('Download URL timeout after 30 seconds');
+          throw TimeoutException('Download URL timeout');
+        },
+      );
+      debugPrint('Download URL obtained: $downloadUrl');
+      return downloadUrl;
+    } catch (e, stackTrace) {
       debugPrint('Erreur upload: $e');
+      debugPrint('Stack trace: $stackTrace');
       return null;
     }
   }

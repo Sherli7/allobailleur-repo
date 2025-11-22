@@ -1,1 +1,28 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"allobailleur-c7e9d","appId":"1:40543426548:android:a82f4f3fdafe099a848ba1","fileOutput":"android/app/google-services.json"}},"dart":{"lib/firebase_options.dart":{"projectId":"allobailleur-c7e9d","configurations":{"android":"1:40543426548:android:a82f4f3fdafe099a848ba1","ios":"1:40543426548:ios:daebae3934ab9363848ba1","macos":"1:40543426548:ios:daebae3934ab9363848ba1","web":"1:40543426548:web:93896f5b4d7618ea848ba1","windows":"1:40543426548:web:6732fefcf9c6d9ec848ba1"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "allobailleur-c7e9d",
+          "appId": "1:40543426548:android:a82f4f3fdafe099a848ba1",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "allobailleur-c7e9d",
+          "configurations": {
+            "android": "1:40543426548:android:a82f4f3fdafe099a848ba1",
+            "ios": "1:40543426548:ios:daebae3934ab9363848ba1",
+            "macos": "1:40543426548:ios:daebae3934ab9363848ba1",
+            "web": "1:40543426548:web:93896f5b4d7618ea848ba1",
+            "windows": "1:40543426548:web:6732fefcf9c6d9ec848ba1"
+          }
+        }
+      }
+    }
+  },
+  "storage": {
+    "rules": "storage.rules"
+  }
+}

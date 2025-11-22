@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:rent_house/Models/property.dart';
 import 'package:rent_house/Providers/auth_provider.dart' as app_auth;
 import 'package:rent_house/Providers/property_provider.dart';
@@ -246,7 +247,37 @@ class _CreatePropertyPageState extends State<CreatePropertyPage> {
 
       final propertyProvider =
           Provider.of<PropertyProvider>(context, listen: false);
+
+      // Show progress dialog for image upload
+      if (_selectedImages.isNotEmpty) {
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => Consumer<PropertyProvider>(
+            builder: (context, provider, child) {
+              final progress = provider.uploadProgress ?? 0.0;
+              return AlertDialog(
+                title: const Text('Téléchargement des photos...'),
+                content: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    LinearProgressIndicator(value: progress),
+                    const SizedBox(height: 16),
+                    Text('${(progress * 100).toInt()}% terminé'),
+                  ],
+                ),
+              );
+            },
+          ),
+        );
+      }
+
       await propertyProvider.createProperty(property, images: _selectedImages);
+
+      // Close progress dialog if it was shown
+      if (_selectedImages.isNotEmpty && Navigator.canPop(context)) {
+        Navigator.pop(context);
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -491,97 +522,117 @@ class _CreatePropertyPageState extends State<CreatePropertyPage> {
         backgroundColor: Colors.blue.shade700,
         foregroundColor: Colors.white,
       ),
-      body: Form(
-        key: _formKey,
-        autovalidateMode: AutovalidateMode.onUserInteraction,
-        child: Theme(
-          data: Theme.of(context).copyWith(
-            elevatedButtonTheme: ElevatedButtonThemeData(
-              style: ElevatedButton.styleFrom(
-                shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(8)),
+      body: SafeArea(
+        child: Form(
+          key: _formKey,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
+          child: Theme(
+            data: Theme.of(context).copyWith(
+              elevatedButtonTheme: ElevatedButtonThemeData(
+                style: ElevatedButton.styleFrom(
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8)),
+                ),
               ),
             ),
-          ),
-          child: Stepper(
-            currentStep: _currentStep,
-            onStepContinue: _handleStepContinue,
-            onStepCancel:
-                _currentStep > 0 ? () => setState(() => _currentStep--) : null,
-            onStepTapped: (index) {
-              if (index <= _currentStep) {
-                setState(() => _currentStep = index);
-                WidgetsBinding.instance.addPostFrameCallback((_) {
-                  _focusFirstFieldOfStep(_currentStep);
-                });
-              }
-            },
-            controlsBuilder: (context, details) {
-              final isLastStep = _currentStep == 3;
-              return Row(
-                children: [
-                  if (_currentStep > 0)
-                    TextButton(
-                      onPressed: details.onStepCancel,
-                      child: const Text('Retour'),
-                    )
-                  else
-                    const SizedBox(width: 8),
-                  const Spacer(),
-                  ElevatedButton(
-                    onPressed: _handleStepContinue,
-                    child: Text(isLastStep ? 'Publier' : 'Suivant'),
-                  ),
-                ],
-              );
-            },
-            steps: [
-              Step(
-                title: const Text('Informations'),
-                content: Form(
-                  key: _formKeys[0],
-                  autovalidateMode: AutovalidateMode.onUserInteraction,
-                  child: _buildInfosStep(),
+            child: SingleChildScrollView(
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Stepper(
+                  currentStep: _currentStep,
+                  onStepContinue: _handleStepContinue,
+                  onStepCancel: _currentStep > 0
+                      ? () => setState(() => _currentStep--)
+                      : null,
+                  onStepTapped: (index) {
+                    if (index <= _currentStep) {
+                      setState(() => _currentStep = index);
+                      WidgetsBinding.instance.addPostFrameCallback((_) {
+                        _focusFirstFieldOfStep(_currentStep);
+                      });
+                    }
+                  },
+                  controlsBuilder: (context, details) {
+                    final isLastStep = _currentStep == 3;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 8.0),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          if (_currentStep > 0)
+                            Flexible(
+                              child: TextButton(
+                                onPressed: details.onStepCancel,
+                                child: const Text('Retour'),
+                              ),
+                            )
+                          else
+                            const SizedBox.shrink(),
+                          Flexible(
+                            child: ElevatedButton(
+                              onPressed: _handleStepContinue,
+                              style: ElevatedButton.styleFrom(
+                                minimumSize: const Size(100, 40),
+                              ),
+                              child: Text(isLastStep ? 'Publier' : 'Suivant'),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  },
+                  steps: [
+                    Step(
+                      title: const Text('Informations'),
+                      content: Form(
+                        key: _formKeys[0],
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        child: _buildInfosStep(),
+                      ),
+                      isActive: _currentStep >= 0,
+                      state: _currentStep > 0
+                          ? StepState.complete
+                          : StepState.editing,
+                    ),
+                    // STEP 2: PHOTOS
+                    Step(
+                      title: const Text('Photos'),
+                      content: Form(
+                        key: _formKeys[1],
+                        child: _buildPhotosStep(),
+                      ),
+                      isActive: _currentStep >= 1,
+                      state: _selectedImages.isNotEmpty
+                          ? StepState.complete
+                          : StepState.editing,
+                    ),
+                    // STEP 3: LOCALISATION
+                    Step(
+                      title: const Text('Localisation'),
+                      content: Form(
+                        key: _formKeys[2],
+                        autovalidateMode: AutovalidateMode.onUserInteraction,
+                        child: _buildLocalisationStep(),
+                      ),
+                      isActive: _currentStep >= 2,
+                      state: _currentStep > 2
+                          ? StepState.complete
+                          : StepState.editing,
+                    ),
+                    // STEP 4: RÉSUMÉ
+                    Step(
+                      title: const Text('Résumé'),
+                      content: Form(
+                        key: _formKeys[3],
+                        child: _buildResumeStep(),
+                      ),
+                      isActive: _currentStep >= 3,
+                      state: StepState.editing,
+                    ),
+                  ],
                 ),
-                isActive: _currentStep >= 0,
-                state:
-                    _currentStep > 0 ? StepState.complete : StepState.editing,
               ),
-              // STEP 2: PHOTOS
-              Step(
-                title: const Text('Photos'),
-                content: Form(
-                  key: _formKeys[1],
-                  child: _buildPhotosStep(),
-                ),
-                isActive: _currentStep >= 1,
-                state: _selectedImages.isNotEmpty
-                    ? StepState.complete
-                    : StepState.editing,
-              ),
-              // STEP 3: LOCALISATION
-              Step(
-                title: const Text('Localisation'),
-                content: Form(
-                  key: _formKeys[2],
-                  autovalidateMode: AutovalidateMode.onUserInteraction,
-                  child: _buildLocalisationStep(),
-                ),
-                isActive: _currentStep >= 2,
-                state:
-                    _currentStep > 2 ? StepState.complete : StepState.editing,
-              ),
-              // STEP 4: RÉSUMÉ
-              Step(
-                title: const Text('Résumé'),
-                content: Form(
-                  key: _formKeys[3],
-                  child: _buildResumeStep(),
-                ),
-                isActive: _currentStep >= 3,
-                state: StepState.editing,
-              ),
-            ],
+            ),
           ),
         ),
       ),
@@ -642,17 +693,18 @@ class _CreatePropertyPageState extends State<CreatePropertyPage> {
           ),
           const SizedBox(height: 12),
           // Listing purpose: rent or sale
-          Row(
+          Wrap(
+            spacing: 8.0,
+            runSpacing: 4.0,
+            crossAxisAlignment: WrapCrossAlignment.center,
             children: [
               const Text('Type d\'annonce: ',
                   style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(width: 8),
               ChoiceChip(
                 label: const Text('Location'),
                 selected: _listingPurpose == 'rent',
                 onSelected: (s) => setState(() => _listingPurpose = 'rent'),
               ),
-              const SizedBox(width: 8),
               ChoiceChip(
                 label: const Text('Vente'),
                 selected: _listingPurpose == 'sale',
@@ -1006,10 +1058,29 @@ class _CreatePropertyPageState extends State<CreatePropertyPage> {
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(8),
-                      child: Image.file(
-                        File(_selectedImages[index].path),
-                        fit: BoxFit.cover,
-                      ),
+                      child: kIsWeb
+                          ? Image.network(
+                              _selectedImages[index].path,
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  color: Colors.grey[300],
+                                  child:
+                                      const Icon(Icons.broken_image, size: 50),
+                                );
+                              },
+                            )
+                          : Image.file(
+                              File(_selectedImages[index].path),
+                              fit: BoxFit.cover,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  color: Colors.grey[300],
+                                  child:
+                                      const Icon(Icons.broken_image, size: 50),
+                                );
+                              },
+                            ),
                     ),
                     Positioned(
                       top: 4,

@@ -260,6 +260,20 @@ class _CreatePropertyPageState extends State<CreatePropertyPage> {
         debugPrint('User ID: ${authProvider.firebaseUser?.uid}');
         debugPrint('Number of images to upload: ${_selectedImages.length}');
 
+        // Debug: Check first image details
+        if (_selectedImages.isNotEmpty) {
+          final firstImage = _selectedImages[0];
+          debugPrint('First image path: ${firstImage.path}');
+          debugPrint('First image name: ${firstImage.name}');
+          debugPrint('First image mimeType: ${firstImage.mimeType}');
+          try {
+            final size = await firstImage.length();
+            debugPrint('First image size: $size bytes');
+          } catch (e) {
+            debugPrint('Error getting image size: $e');
+          }
+        }
+
         showDialog(
           context: context,
           barrierDismissible: false,

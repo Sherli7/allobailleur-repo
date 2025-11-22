@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:rent_house/Screens/viewPostingPage.dart';
-import 'package:rent_house/Views/gridWidets.dart'; // Ensure this path is correct
+import 'package:rent_house/Views/gridWidets.dart';
 
 class ExplorePage extends StatefulWidget {
   const ExplorePage({super.key});
@@ -12,34 +12,30 @@ class ExplorePage extends StatefulWidget {
 class MyExplorePageState extends State<ExplorePage> {
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(25, 25, 25, 0),
-      child: SingleChildScrollView(
-        child: Column(
-          children: <Widget>[
-            const Padding(
-              padding: EdgeInsets.only(top: 10, bottom: 50.0),
-              child: TextField(
-                decoration: InputDecoration(
-                  hintText: 'Search',
-                  prefixIcon: Icon(Icons.search),
-                  border: OutlineInputBorder(
-                    borderSide: BorderSide(
-                      color: Colors.grey,
-                      width: 2.0,
-                    ),
-                  ),
-                  contentPadding: EdgeInsets.all(5.0),
-                ),
-                style: TextStyle(
-                  fontSize: 20.0,
-                  color: Colors.black,
-                ),
+    return Column(  // Column borné comme body principal (standard pour Scaffold)
+      children: [
+        // Header avec padding spécifique
+        Padding(
+          padding: const EdgeInsets.fromLTRB(25, 25, 25, 10),  // Padding localisé
+          child: const TextField(
+            decoration: InputDecoration(
+              hintText: 'Search',
+              prefixIcon: Icon(Icons.search),
+              border: OutlineInputBorder(
+                borderSide: BorderSide(color: Colors.grey, width: 2.0),
               ),
+              contentPadding: EdgeInsets.all(5.0),
             ),
-            GridView.builder(
-              physics: const ScrollPhysics(),
-              shrinkWrap: true,
+            style: TextStyle(fontSize: 20.0, color: Colors.black),
+          ),
+        ),
+        // Contenu principal : Expanded pour hauteur finie
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 25.0),  // Padding latéral seulement
+            child: GridView.builder(
+              // Pas de shrinkWrap (défaut false) pour perf ; Expanded gère la hauteur
+              physics: const NeverScrollableScrollPhysics(),  // Pas de scroll si dans Tab/parent scrollable
               itemCount: 4,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,
@@ -50,20 +46,14 @@ class MyExplorePageState extends State<ExplorePage> {
               itemBuilder: (context, index) {
                 return InkResponse(
                   enableFeedback: true,
-                  child: const PositingGridTile(),
-                  onTap: () {
-                    // Replace 'routeName' with your actual route name
-                    Navigator.pushNamed(
-                        context,
-                        ViewPostingPage.routeName,
-                    );
-                  },
+                  child: const PostingGridTile(),
+                  onTap: () => Navigator.pushNamed(context, ViewPostingPage.routeName),
                 );
               },
             ),
-          ],
+          ),
         ),
-      ),
+      ],
     );
   }
 }

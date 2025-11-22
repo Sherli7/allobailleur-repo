@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:rent_house/Screens/guestHomePage.dart';
 import 'package:rent_house/Views/TextWidgets.dart';
 import 'package:rent_house/Views/calendarWidgets.dart';
 
@@ -28,7 +27,7 @@ class _MyBookPostingPageState extends State<BookPostingPage> {
 
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: <Widget>[
-            Row(
+            const Row(
               mainAxisSize: MainAxisSize.max,
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: <Widget> [
@@ -41,7 +40,7 @@ class _MyBookPostingPageState extends State<BookPostingPage> {
                 Text('Sat'),
               ],
             ),
-            Container(
+            SizedBox(
               height: MediaQuery.of(context).size.height/1.8,
               child: PageView.builder(
                 itemCount: 12,
@@ -51,13 +50,13 @@ class _MyBookPostingPageState extends State<BookPostingPage> {
               ),
             ),
             MaterialButton(
-                onPressed: (){
+              onPressed: (){
 
-                },
-              child: Text('Book Now!'),
+              },
               minWidth: double.infinity,
               height: MediaQuery.of(context).size.height/14,
               color: Colors.greenAccent,
+              child: const Text('Book Now!'),
             ),
           ],
         ),

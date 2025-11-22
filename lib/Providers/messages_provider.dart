@@ -1,0 +1,167 @@
+import 'package:flutter/foundation.dart';
+import 'dart:async';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:rent_house/Services/messages_service.dart';
+import 'package:rent_house/Models/conversation.dart';
+import 'package:rent_house/Models/message.dart';
+
+class MessagesProvider with ChangeNotifier {
+  final MessagesService _messagesService = MessagesService();
+
+  List<Conversation> _conversations = [];
+  List<Message> _currentMessages = []; // Messages pour convo courante
+  String? _currentConversationId;
+  bool _isLoading = false;
+  String? _errorMessage;
+  StreamSubscription<List<Conversation>>? _conversationsSubscription;
+  StreamSubscription<List<Message>>? _messagesSubscription;
+
+  // Getters
+  List<Conversation> get conversations => List.unmodifiable(_conversations);
+  List<Message> get currentMessages => List.unmodifiable(_currentMessages);
+  String? get currentConversationId => _currentConversationId;
+  bool get isLoading => _isLoading;
+  String? get errorMessage => _errorMessage;
+
+  @override
+  void dispose() {
+    _conversationsSubscription?.cancel();
+    _messagesSubscription?.cancel();
+    super.dispose();
+  }
+
+  /// Charge les conversations d'un user (init ou refresh)
+  void loadConversations(String userId) {
+    if (_isLoading) return;
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    // Cancel previous subscription
+    _conversationsSubscription?.cancel();
+    _conversationsSubscription =
+        _messagesService.getUserConversations(userId).listen(
+      (conversations) {
+        _conversations = conversations;
+        _isLoading = false;
+        notifyListeners();
+      },
+      onError: (error) {
+        _errorMessage = 'Erreur lors du chargement des conversations: $error';
+        _isLoading = false;
+        notifyListeners();
+      },
+    );
+  }
+
+  /// Sélectionne une conversation et charge ses messages
+  void selectConversation(String conversationId) {
+    if (_currentConversationId == conversationId) return;
+    _currentConversationId = conversationId;
+    _loadMessagesForConversation(conversationId);
+    notifyListeners();
+  }
+
+  /// Charge les messages d'une conversation (stream real-time)
+  void _loadMessagesForConversation(String conversationId) {
+    _messagesSubscription?.cancel();
+    _messagesSubscription = _messagesService.getMessages(conversationId).listen(
+      (messages) {
+        _currentMessages = messages;
+        notifyListeners();
+      },
+      onError: (error) {
+        _errorMessage = 'Erreur lors du chargement des messages: $error';
+        notifyListeners();
+      },
+    );
+  }
+
+  /// Envoie un message (texte ou image)
+  Future<bool> sendMessage(String conversationId, String text,
+      {String? imageUrl, String? videoUrl}) async {
+    if (_isLoading || FirebaseAuth.instance.currentUser == null) return false;
+
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final senderId = FirebaseAuth.instance.currentUser!.uid;
+      await _messagesService.sendMessage(conversationId, text,
+          imageUrl: imageUrl, videoUrl: videoUrl, senderId: senderId);
+      // Pas de local update needed car stream rebâtira
+      _isLoading = false;
+      return true;
+    } catch (e) {
+      _errorMessage = 'Erreur lors de l\'envoi: $e';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Marque une conversation comme lue
+  Future<bool> markAsRead(String conversationId) async {
+    if (FirebaseAuth.instance.currentUser == null) return false;
+
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final userId = FirebaseAuth.instance.currentUser!.uid;
+      await _messagesService.markAsRead(conversationId, userId);
+      // Local update pour instantanéité
+      final index = _conversations.indexWhere((c) => c.id == conversationId);
+      if (index != -1) {
+        _conversations[index] = _conversations[index].copyWith(unreadCount: 0);
+        notifyListeners();
+      }
+      _isLoading = false;
+      return true;
+    } catch (e) {
+      _errorMessage = 'Erreur lors de la marque comme lu: $e';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Crée une nouvelle conversation (ex. depuis annonce)
+  Future<String?> createConversation(String otherUserId,
+      {String? propertyId}) async {
+    if (FirebaseAuth.instance.currentUser == null) return null;
+
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      final currentUserId = FirebaseAuth.instance.currentUser!.uid;
+      final convoId = await _messagesService.createConversation(
+          otherUserId, propertyId ?? '');
+      // Refresh conversations pour inclure la nouvelle
+      loadConversations(currentUserId);
+      _isLoading = false;
+      return convoId;
+    } catch (e) {
+      _errorMessage = 'Erreur lors de la création: $e';
+      _isLoading = false;
+      notifyListeners();
+      return null;
+    }
+  }
+
+  /// Efface le message d'erreur
+  void clearError() {
+    _errorMessage = null;
+    notifyListeners();
+  }
+
+  /// Désélectionne la convo courante (clear messages)
+  void clearSelectedConversation() {
+    _currentConversationId = null;
+    _currentMessages = [];
+    _messagesSubscription?.cancel();
+    notifyListeners();
+  }
+}

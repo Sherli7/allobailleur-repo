@@ -1,68 +1,81 @@
 import 'package:flutter/material.dart';
-import 'package:rent_house/Models/AppConstants.dart';
-import 'package:rent_house/Screens/accountPage.dart';
-import 'package:rent_house/Screens/explorePage.dart';
-import 'package:rent_house/Screens/inboxPage.dart';
-import 'package:rent_house/Screens/savedPage.dart';
-import 'package:rent_house/Screens/tripsPage.dart';
-import 'package:rent_house/Views/TextWidgets.dart';
+import 'package:provider/provider.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:rent_house/Screens/searchPage.dart';
+import 'package:rent_house/Screens/favoritesPage.dart';
+import 'package:rent_house/Screens/createPropertyPage.dart';
+import 'package:rent_house/Screens/conversationPage.dart'; // Assume ton ConversationPage pour Messages
+import 'package:rent_house/Screens/viewProfilePage.dart';
+import 'package:rent_house/Providers/property_provider.dart'; // Pour load favorites au init
 
 class GuestHomePage extends StatefulWidget {
-  static const String routeName = 'loginPageRoute';
-
-  const GuestHomePage({super.key}); // Changed to optional key
+  static const String routeName = '/home';
+  const GuestHomePage({super.key});
 
   @override
-  GuestHomePageState createState() => GuestHomePageState();
+  State<GuestHomePage> createState() => _GuestHomePageState();
 }
 
-class GuestHomePageState extends State<GuestHomePage> {
-  int _selectedIndex=4;
-  final List<String> pageTitle=[
-    'Explore',
-    'Saved',
-    'Trips',
-    'Inbox',
-    'Profile'
-  ];
+class _GuestHomePageState extends State<GuestHomePage> {
+  int _currentIndex = 0;
+  late final List<Widget> _pages;
 
-  final List<Widget> _page=[
-    const ExplorePage(),
-    const SavedPage(),
-     const TripsPage(),
-    const InboxPage(),
-    const AccountPage()
-  ];
-  BottomNavigationBarItem _buildNavigationItem(int index, IconData iconData, String text){
-    return BottomNavigationBarItem(
-      icon: Icon(iconData, color: AppConstants.nonselectedIconColor),
-      activeIcon: Icon(iconData, color: AppConstants.selectedIconColor),
-      label: text,
-    );
+  @override
+  void initState() {
+    super.initState();
+    _pages = [
+      const SearchPage(),
+      const FavoritesPage(), // À implémenter si pas encore
+      const CreatePropertyPage(),
+      const ConversationPage(), // Messages
+      const ViewProfilePage(),
+    ];
+    // Load initial data (ex. favorites)
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final userId = FirebaseAuth.instance.currentUser?.uid;
+      if (userId != null) {
+        context.read<PropertyProvider>().loadFavorites(userId);
+      }
+      context
+          .read<PropertyProvider>()
+          .fetchProperties(); // Charge annonces pour Search
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: AppBarText(key: UniqueKey(), text: pageTitle[_selectedIndex]),
+      body: IndexedStack(
+        index: _currentIndex,
+        children: _pages,
       ),
-      body: _page[_selectedIndex],
       bottomNavigationBar: BottomNavigationBar(
-        onTap: (index){
-          setState(() {
-            _selectedIndex=index;
-          });
-        },
-        currentIndex: _selectedIndex,
-        type: BottomNavigationBarType.fixed,
-        items: <BottomNavigationBarItem>[
-          _buildNavigationItem(0, Icons.search, pageTitle[0]),
-          _buildNavigationItem(1, Icons.favorite_border, pageTitle[1]),
-          _buildNavigationItem(1, Icons.hotel, pageTitle[2]),
-          _buildNavigationItem(1, Icons.message, pageTitle[3]),
-          _buildNavigationItem(1, Icons.person_outline, pageTitle[4]),
+        type: BottomNavigationBarType.fixed, // Pour 5 items sans shift
+        currentIndex: _currentIndex,
+        onTap: (index) => setState(() => _currentIndex = index),
+        selectedItemColor: Theme.of(context).colorScheme.primary,
+        unselectedItemColor: Colors.grey,
+        items: const [
+          BottomNavigationBarItem(
+            icon: Icon(Icons.search),
+            label: 'Recherche',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.favorite_border),
+            label: 'Favoris',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.add),
+            label: 'Publier',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.chat_bubble_outline),
+            label: 'Messages',
+          ),
+          BottomNavigationBarItem(
+            icon: Icon(Icons.person),
+            label: 'Profil',
+          ),
         ],
       ),
     );

@@ -1,13 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
+import 'package:rent_house/Models/property.dart';
 import 'package:rent_house/Screens/viewProfilePage.dart';
 
 class ReviewListTitle extends StatefulWidget {
-  const ReviewListTitle({required Key key}) : super(key: key);
+  const ReviewListTitle({super.key});
 
   @override
-  ReviewListTitleState createState() => ReviewListTitleState();
+  State<ReviewListTitle> createState() => ReviewListTitleState();
 }
 
 class ReviewListTitleState extends State<ReviewListTitle> {
@@ -43,7 +44,7 @@ class ReviewListTitleState extends State<ReviewListTitle> {
                 color: Colors.deepOrange,
               ),
               onRatingUpdate: (rating) {
-                print(rating);
+                // Print statement removed
               },
             ),
           ],
@@ -64,7 +65,7 @@ class ReviewListTitleState extends State<ReviewListTitle> {
 
 class ConversationListTilePage extends StatefulWidget{
 
-  ConversationListTilePage({super.key});
+  const ConversationListTilePage({super.key});
 
 
   @override
@@ -83,30 +84,30 @@ class ConversationListTileState extends State<ConversationListTilePage>{
          Navigator.pushNamed(context, ViewProfilePage.routeName);
        },
        child: CircleAvatar(
-         backgroundImage: AssetImage('assets/images/defaultAvatar.jpg'),
          radius: MediaQuery.of(context).size.width/14.0,
+         child: const Icon(Icons.person),
        ),
      ),
-     title: Text(
+     title: const Text(
        'Lionel',
        style: TextStyle(
          fontSize: 22.5,
          fontWeight: FontWeight.bold
        ),
      ),
-     subtitle: Text(
+     subtitle: const Text(
        'Hey, How\'s it going?',
        style:TextStyle(
            fontSize: 20.0,
        ),
      ),
-     trailing: Text(
+     trailing: const Text(
        '30 Août',
        style:TextStyle(
          fontSize: 20.0,
        ),
      ),
-     contentPadding: EdgeInsets.fromLTRB(25.0,15.0,25.0,15.0),
+     contentPadding: const EdgeInsets.fromLTRB(25.0,15.0,25.0,15.0),
    );
   }
 
@@ -114,7 +115,7 @@ class ConversationListTileState extends State<ConversationListTilePage>{
 
 
 class MessageListTile extends StatelessWidget{
-  MessageListTile({super.key});
+  const MessageListTile({super.key});
   @override
   Widget build(BuildContext context) {
 /*   return Padding(
@@ -184,12 +185,12 @@ class MessageListTile extends StatelessWidget{
                   color: Colors.blue,
                   borderRadius: BorderRadius.circular(10),
                 ),
-                child: Column(
+                child: const Column(
                   mainAxisSize: MainAxisSize.max,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: <Widget>[
                     Padding(
-                      padding: const EdgeInsets.only(bottom: 10.0),
+                      padding: EdgeInsets.only(bottom: 10.0),
                       child: Text(
                         'This is really long message that is supposed to test the proper message functionality and make sure thant everything is working and wrapping properly.',
                         style: TextStyle(
@@ -213,7 +214,7 @@ class MessageListTile extends StatelessWidget{
               );
             },
             child: CircleAvatar(
-              backgroundImage: AssetImage('assets/images/defaultAvatar.jpg'),
+              backgroundImage: const AssetImage('assets/images/defaultAvatar.jpg'),
               radius: MediaQuery.of(context).size.width/20,
             ),
           ),
@@ -222,4 +223,84 @@ class MessageListTile extends StatelessWidget{
     );
   }
   
+}
+
+class PropertyListingTile extends StatelessWidget {
+  final Property property;
+
+  const PropertyListingTile({super.key, required this.property});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      elevation: 4,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      clipBehavior: Clip.antiAlias, // To clip the image corners
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Image
+          SizedBox(
+            height: 180,
+            width: double.infinity,
+            child: (property.imageUrls.isNotEmpty
+                ? Image.network(
+                    property.imageUrls[0],
+                    fit: BoxFit.cover,
+                    // Loading and error handling for network image
+                    loadingBuilder: (context, child, loadingProgress) {
+                      if (loadingProgress == null) return child;
+                      return const Center(child: CircularProgressIndicator());
+                    },
+                    errorBuilder: (context, error, stackTrace) {
+                      return Image.asset(
+                        'assets/images/house.jpeg',
+                        fit: BoxFit.cover,
+                      );
+                    },
+                  )
+                : Image.asset(
+                    'assets/images/house.jpeg', // Placeholder if no photo
+                    fit: BoxFit.cover,
+                  )),
+          ),
+          // Info
+          Padding(
+            padding: const EdgeInsets.all(12.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  property.title,
+                  style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  property.city,
+                  style: const TextStyle(fontSize: 16, color: Colors.grey),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  '${property.price} FCFA / mois',
+                  style: const TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.deepOrange,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

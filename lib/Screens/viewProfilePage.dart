@@ -1,6 +1,5 @@
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
-import 'package:rent_house/Screens/guestHomePage.dart';
 import 'package:rent_house/Views/ListWidgets.dart';
 import 'package:rent_house/Views/TextWidgets.dart';
 import 'package:rent_house/Views/formWidgets.dart';
@@ -17,9 +16,6 @@ class ViewProfilePage extends StatefulWidget {
 
 class _MyViewProfilePageState extends State<ViewProfilePage> {
 
-  void _signup(){
-    Navigator.pushNamed(context, GuestHomePage.routeName);
-  }
 
   @override
   Widget build(BuildContext context) {

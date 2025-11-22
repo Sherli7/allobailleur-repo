@@ -12,7 +12,7 @@ class CalendarMonthWidget extends StatefulWidget{
 }
 
 class _CalendarMonthState extends State<CalendarMonthWidget> {
-  List<MonthTile> _monthtile = [];
+  final List<MonthTile> _monthtile = [];
   late int _currentMonthInt;
   late int _currentYearInt;
 
@@ -74,7 +74,7 @@ class _CalendarMonthState extends State<CalendarMonthWidget> {
 class MonthTile extends StatelessWidget {
   final DateTime? date; // Made nullable
 
-  MonthTile({super.key, required this.date});
+  const MonthTile({super.key, required this.date});
 
   @override
   Widget build(BuildContext context) {

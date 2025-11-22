@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "40543426548",
+    "project_id": "allobailleur-c7e9d",
+    "storage_bucket": "allobailleur-c7e9d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:40543426548:android:a82f4f3fdafe099a848ba1",
+        "android_client_info": {
+          "package_name": "com.example.rent_house"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBVVy4bbxIqdTJyCLU_0ijneZcNbdYK4y4"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -1,0 +1,136 @@
+// Firestore Security Rules pour Allobailleur
+// Placer ce fichier dans Firebase Console : Firestore → Règles
+// Ou dans votre repo (par exemple : firestore.rules)
+
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // === Helpers ===
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+    
+    function isAdmin() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    function isOwnerOfProperty(propertyId) {
+      let property = get(/databases/$(database)/documents/properties/$(propertyId)).data;
+      return request.auth.uid == property.ownerId;
+    }
+    
+    // === Users collection ===
+    match /users/{userId} {
+      // Les utilisateurs peuvent lire leur propre profil
+      allow read: if isAuthenticated() && isOwner(userId);
+      
+      // Les utilisateurs peuvent créer leur profil lors de l'inscription (via AuthService)
+      allow create: if isAuthenticated() && isOwner(userId);
+      
+      // Les utilisateurs peuvent mettre à jour leur propre profil
+      allow update: if isAuthenticated() && isOwner(userId);
+      
+      // Seuls les admins peuvent supprimer un utilisateur
+      allow delete: if isAuthenticated() && isAdmin();
+      
+      // Les favoris sont stockés sur le document utilisateur
+      match /{document=**} {
+        allow read, write: if isAuthenticated() && isOwner(userId);
+      }
+    }
+    
+    // === Properties collection (Listings) ===
+    match /properties/{propertyId} {
+      // Tout le monde peut lire les propriétés publiées (annonces actives)
+      allow read: if resource.data.status == 'published' && resource.data.isAvailable == true;
+      
+      // Les propriétaires authentifiés peuvent lire leurs propres propriétés (publiées ou brouillons)
+      allow read: if isAuthenticated() && isOwnerOfProperty(propertyId);
+      
+      // Seuls les propriétaires/owners authentifiés peuvent créer
+      allow create: if isAuthenticated() && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'owner' ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin'
+      ) && request.resource.data.ownerId == request.auth.uid;
+      
+      // Seuls les propriétaires de la propriété peuvent la mettre à jour
+      allow update: if isAuthenticated() && isOwnerOfProperty(propertyId);
+      
+      // Seuls les propriétaires ou admins peuvent supprimer
+      allow delete: if isAuthenticated() && (
+        isOwnerOfProperty(propertyId) || isAdmin()
+      );
+      
+      // === Reviews subcollection ===
+      match /reviews/{reviewId} {
+        // Tout le monde peut lire les avis
+        allow read: if true;
+        
+        // Les utilisateurs authentifiés peuvent créer des avis
+        allow create: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
+        
+        // Seuls le créateur de l'avis peut le mettre à jour
+        allow update: if isAuthenticated() && resource.data.userId == request.auth.uid;
+        
+        // Seuls le créateur ou un admin peut supprimer
+        allow delete: if isAuthenticated() && (
+          resource.data.userId == request.auth.uid || isAdmin()
+        );
+      }
+    }
+    
+    // === Bookings collection (Réservations) ===
+    match /bookings/{bookingId} {
+      // Les utilisateurs peuvent lire leurs propres réservations
+      allow read: if isAuthenticated() && (
+        resource.data.guestId == request.auth.uid ||
+        resource.data.hostId == request.auth.uid ||
+        isAdmin()
+      );
+      
+      // Les locataires peuvent créer une réservation
+      allow create: if isAuthenticated() && (
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'tenant'
+      ) && request.resource.data.guestId == request.auth.uid;
+      
+      // Les propriétaires peuvent mettre à jour (confirmer/annuler une réservation)
+      allow update: if isAuthenticated() && (
+        resource.data.hostId == request.auth.uid ||
+        isAdmin()
+      );
+      
+      // Les admins peuvent supprimer
+      allow delete: if isAuthenticated() && isAdmin();
+    }
+    
+    // === Chats / Messages collection (optionnel, pour messagerie in-app) ===
+    match /chats/{chatId} {
+      // Les utilisateurs peuvent lire leurs propres messages
+      allow read: if isAuthenticated() && (
+        resource.data.fromUserId == request.auth.uid ||
+        resource.data.toUserId == request.auth.uid ||
+        isAdmin()
+      );
+      
+      // Les utilisateurs authentifiés peuvent créer un message
+      allow create: if isAuthenticated() && request.resource.data.fromUserId == request.auth.uid;
+      
+      // Les messages ne peuvent pas être modifiés (immuables)
+      allow update: if false;
+      
+      // Seuls les admins peuvent supprimer
+      allow delete: if isAuthenticated() && isAdmin();
+    }
+    
+    // === Catch-all (dénier par défaut) ===
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -38,63 +38,57 @@ class BookingProvider with ChangeNotifier {
   }
 
   /// Charger les réservations de l'utilisateur
-  void loadUserBookings(String userId) {
+  Future<void> loadUserBookings(String userId) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
-    _bookingService.getUserBookings(userId).listen(
-      (bookings) {
-        _userBookings = bookings;
-        _isLoading = false;
-        notifyListeners();
-      },
-      onError: (error) {
-        _errorMessage = 'Erreur: $error';
-        _isLoading = false;
-        notifyListeners();
-      },
-    );
+    try {
+      final bookings = await _bookingService.getUserBookings(userId);
+      _userBookings = bookings;
+      _isLoading = false;
+      notifyListeners();
+    } catch (error) {
+      _errorMessage = 'Erreur: $error';
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   /// Charger les réservations pour l'hôte
-  void loadHostBookings(String hostId) {
+  Future<void> loadHostBookings(String hostId) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
-    _bookingService.getHostBookings(hostId).listen(
-      (bookings) {
-        _hostBookings = bookings;
-        _isLoading = false;
-        notifyListeners();
-      },
-      onError: (error) {
-        _errorMessage = 'Erreur: $error';
-        _isLoading = false;
-        notifyListeners();
-      },
-    );
+    try {
+      final bookings = await _bookingService.getHostBookings(hostId);
+      _hostBookings = bookings;
+      _isLoading = false;
+      notifyListeners();
+    } catch (error) {
+      _errorMessage = 'Erreur: $error';
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   /// Charger les réservations pour une propriété
-  void loadPropertyBookings(String propertyId) {
+  Future<void> loadPropertyBookings(String propertyId) async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
-    _bookingService.getPropertyBookings(propertyId).listen(
-      (bookings) {
-        _propertyBookings = bookings;
-        _isLoading = false;
-        notifyListeners();
-      },
-      onError: (error) {
-        _errorMessage = 'Erreur: $error';
-        _isLoading = false;
-        notifyListeners();
-      },
-    );
+    try {
+      final bookings = await _bookingService.getPropertyBookings(propertyId);
+      _propertyBookings = bookings;
+      _isLoading = false;
+      notifyListeners();
+    } catch (error) {
+      _errorMessage = 'Erreur: $error';
+      _isLoading = false;
+      notifyListeners();
+    }
   }
 
   /// Vérifier la disponibilité
@@ -142,7 +136,8 @@ class BookingProvider with ChangeNotifier {
       // Mettre à jour localement
       final index = _userBookings.indexWhere((b) => b.id == bookingId);
       if (index != -1) {
-        _userBookings[index] = _userBookings[index].copyWith(status: 'cancelled');
+        _userBookings[index] =
+            _userBookings[index].copyWith(status: 'cancelled');
       }
     }
     notifyListeners();
@@ -165,7 +160,8 @@ class BookingProvider with ChangeNotifier {
       // Mettre à jour localement
       final index = _hostBookings.indexWhere((b) => b.id == bookingId);
       if (index != -1) {
-        _hostBookings[index] = _hostBookings[index].copyWith(status: 'confirmed');
+        _hostBookings[index] =
+            _hostBookings[index].copyWith(status: 'confirmed');
       }
     }
     notifyListeners();

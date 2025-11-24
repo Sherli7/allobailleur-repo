@@ -141,7 +141,7 @@ class _EditPropertyPageState extends State<EditPropertyPage> {
         country: widget.property.country,
         price: double.parse(_priceController.text),
         currency: _currency,
-        bedrooms: int.parse(_bedroomsController.text),
+        rooms: int.parse(_bedroomsController.text),
         bathrooms: int.parse(_bathroomsController.text),
         address: _addressController.text,
         district: _districtController.text,

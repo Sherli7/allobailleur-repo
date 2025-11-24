@@ -1,5 +1,7 @@
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import 'package:rent_house/Providers/auth_provider.dart';
 import 'package:rent_house/Views/ListWidgets.dart';
 import 'package:rent_house/Views/TextWidgets.dart';
 import 'package:rent_house/Views/formWidgets.dart';
@@ -9,16 +11,22 @@ class ViewProfilePage extends StatefulWidget {
 
   const ViewProfilePage({super.key});
 
-
   @override
   State<ViewProfilePage> createState() => _MyViewProfilePageState();
 }
 
 class _MyViewProfilePageState extends State<ViewProfilePage> {
-
-
   @override
   Widget build(BuildContext context) {
+    final authProvider = Provider.of<AuthProvider>(context);
+    final user = authProvider.user;
+
+    if (user == null) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
@@ -27,22 +35,22 @@ class _MyViewProfilePageState extends State<ViewProfilePage> {
       body: Center(
         child: SingleChildScrollView(
           child: Padding(
-            padding: const EdgeInsets.fromLTRB(35,50,35,35),
+            padding: const EdgeInsets.fromLTRB(35, 50, 35, 35),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.start,
               crossAxisAlignment: CrossAxisAlignment.start,
-              children:<Widget> [
+              children: <Widget>[
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.center,
                   children: <Widget>[
-                   SizedBox(
-                      width: MediaQuery.of(context).size.width * 3/5,
-                      child: const AutoSizeText(
-                        'Hi my name is Sherli7',
-                        style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            fontSize: 30,
+                    SizedBox(
+                      width: MediaQuery.of(context).size.width * 3 / 5,
+                      child: AutoSizeText(
+                        'Hi, my name is ${user.fullName}',
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 30,
                         ),
                         maxLines: 2,
                       ),
@@ -52,7 +60,11 @@ class _MyViewProfilePageState extends State<ViewProfilePage> {
                       radius: MediaQuery.of(context).size.width / 9.5,
                       child: CircleAvatar(
                         radius: MediaQuery.of(context).size.width / 10,
-                        backgroundImage: const AssetImage('assets/images/sherli7.jpg'),
+                        backgroundImage: user.profileImageUrl.isNotEmpty
+                            ? NetworkImage(user.profileImageUrl)
+                            : const AssetImage(
+                                    'assets/images/default_profile.jpg')
+                                as ImageProvider,
                       ),
                     ),
                   ],
@@ -67,11 +79,11 @@ class _MyViewProfilePageState extends State<ViewProfilePage> {
                     ),
                   ),
                 ),
-                const Padding(
-                  padding: EdgeInsets.only(top: 20.0),
+                Padding(
+                  padding: const EdgeInsets.only(top: 20.0),
                   child: AutoSizeText(
-                    'I am a guy who likes travelling and having fun while I see cool stuff around the world.',
-                    style: TextStyle(
+                    user.bio ?? 'No bio available.',
+                    style: const TextStyle(
                       fontSize: 20.0,
                       fontWeight: FontWeight.bold,
                     ),
@@ -87,16 +99,18 @@ class _MyViewProfilePageState extends State<ViewProfilePage> {
                     ),
                   ),
                 ),
-                const Padding(
-                  padding: EdgeInsets.fromLTRB(10, 20.0, 10, 0),
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(10, 20.0, 10, 0),
                   child: Row(
-                    children:<Widget> [
-                      Icon(Icons.home),
+                    children: <Widget>[
+                      const Icon(Icons.home),
                       Padding(
-                        padding: EdgeInsets.only(left: 20.0),
+                        padding: const EdgeInsets.only(left: 20.0),
                         child: AutoSizeText(
-                          'Lives in Yaounde,Cameroon',
-                          style: TextStyle(
+                          user.city != null && user.country != null
+                              ? 'Lives in ${user.city}, ${user.country}'
+                              : 'Location not specified',
+                          style: const TextStyle(
                             fontSize: 20.0,
                             fontWeight: FontWeight.bold,
                           ),
@@ -121,18 +135,18 @@ class _MyViewProfilePageState extends State<ViewProfilePage> {
                 ),
                 Padding(
                   padding: const EdgeInsets.only(top: 20.0),
-                  child:ListView.builder(
+                  child: ListView.builder(
                     itemCount: 2,
                     shrinkWrap: true,
                     itemBuilder: (context, index) {
                       return Padding(
-                        padding: const EdgeInsets.only(top:10.0, bottom: 10.0),
+                        padding: const EdgeInsets.only(top: 10.0, bottom: 10.0),
                         child: ReviewListTitle(key: UniqueKey()),
                       ); // Adjust this according to how ReviewListTitle is defined
                     },
                   ),
                 ),
-                ],
+              ],
             ),
           ),
         ),

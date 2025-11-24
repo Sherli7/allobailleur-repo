@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
 class User {
   final String uid;
@@ -74,8 +73,8 @@ class User {
       'city': city,
       'country': country,
       'bio': bio,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'updatedAt': updatedAt != null ? Timestamp.fromDate(updatedAt!) : null,
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt?.toIso8601String(),
     };
   }
 
@@ -95,22 +94,25 @@ class User {
       city: map['city'],
       country: map['country'],
       bio: map['bio'],
-      createdAt: (map['createdAt'] as Timestamp).toDate(),
-      updatedAt: map['updatedAt'] != null
-          ? (map['updatedAt'] as Timestamp).toDate()
-          : null,
+      createdAt: map['createdAt'] != null
+          ? DateTime.parse(map['createdAt'])
+          : DateTime.now(),
+      updatedAt:
+          map['updatedAt'] != null ? DateTime.parse(map['updatedAt']) : null,
     );
   }
 
-  factory User.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
-    // Safely access the data, providing an empty map as a fallback.
-    final data = doc.data() ?? {};
+  factory User.fromJson(Map<String, dynamic> data) {
     return User.fromMap(data);
   }
 
-  String toJson() => json.encode(toMap());
+  // Alias for compatibility
+  factory User.fromFirestore(data) => User.fromJson(data);
 
-  factory User.fromJson(String source) => User.fromMap(json.decode(source));
+  String toJsonString() => json.encode(toMap());
+
+  factory User.fromJsonString(String source) =>
+      User.fromMap(json.decode(source));
 
   @override
   String toString() {

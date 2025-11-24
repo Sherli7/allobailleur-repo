@@ -1,12 +1,13 @@
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:rent_house/Services/google_sign_in_wrapper.dart';
 import 'package:rent_house/Models/Users.dart' as AppUserModel;
 
 class AuthService {
-  final FirebaseAuth _firebaseAuth = FirebaseAuth.instance;
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final firebase_auth.FirebaseAuth _firebaseAuth =
+      firebase_auth.FirebaseAuth.instance;
+  final SupabaseClient _supabase = Supabase.instance.client;
 
   /// Notes / checklist for Google OAuth setup
   /// - Android: ensure `google-services.json` is present and SHA-1/SHA-256 fingerprints
@@ -17,15 +18,16 @@ class AuthService {
   ///   the `google_sign_in` plugin.
 
   // Compatibilité: expose l'ancien nom attendu par les providers
-  Stream<User?> get authStateChanges => _firebaseAuth.authStateChanges();
+  Stream<firebase_auth.User?> get authStateChanges =>
+      _firebaseAuth.authStateChanges();
 
   // Ancien alias utilisé ailleurs
-  Stream<User?> get user => authStateChanges;
+  Stream<firebase_auth.User?> get user => authStateChanges;
 
   // Obtenir l'utilisateur actuel
-  User? get currentUser => _firebaseAuth.currentUser;
+  firebase_auth.User? get currentUser => _firebaseAuth.currentUser;
 
-  /// Inscription email/password et création du document Firestore
+  /// Inscription email/password et création du document Supabase
   Future<Map<String, dynamic>> signUp({
     required String email,
     required String password,
@@ -46,7 +48,6 @@ class AuthService {
         return {'success': false, 'message': 'Échec de la création du compte.'};
       }
 
-      final userDoc = _firestore.collection('users').doc(user.uid);
       final appUser = AppUserModel.User(
         uid: user.uid,
         email: email,
@@ -60,7 +61,7 @@ class AuthService {
         createdAt: DateTime.now(),
       );
 
-      await userDoc.set(appUser.toFirestore());
+      await _supabase.from('users').insert(appUser.toMap());
 
       // Set the Firebase user's display name for convenience
       try {
@@ -100,20 +101,19 @@ class AuthService {
         return {'success': false, 'message': 'Connexion Google annulée.'};
       }
 
-      final User? user = userCredential.user;
+      final firebase_auth.User? user = userCredential.user;
 
       if (user != null) {
-        final userDoc = _firestore.collection('users').doc(user.uid);
-        final docSnapshot = await userDoc.get();
-
-        if (!docSnapshot.exists) {
-          await userDoc.set(AppUserModel.User(
-            uid: user.uid,
-            email: user.email ?? '',
-            firstName: user.displayName?.split(' ').first ?? '',
-            lastName: user.displayName?.split(' ').skip(1).join(' ') ?? '',
-            createdAt: DateTime.now(),
-          ).toFirestore());
+        final response =
+            await _supabase.from('users').select().eq('uid', user.uid);
+        if (response.isEmpty) {
+          await _supabase.from('users').insert(AppUserModel.User(
+                uid: user.uid,
+                email: user.email ?? '',
+                firstName: user.displayName?.split(' ').first ?? '',
+                lastName: user.displayName?.split(' ').skip(1).join(' ') ?? '',
+                createdAt: DateTime.now(),
+              ).toMap());
         }
       }
 
@@ -165,7 +165,7 @@ class AuthService {
   Future<String> updateUserProfile(
       String uid, Map<String, dynamic> data) async {
     try {
-      await _firestore.collection('users').doc(uid).update(data);
+      await _supabase.from('users').update(data).eq('uid', uid);
       return 'Profil mis à jour avec succès.';
     } catch (e) {
       return 'Erreur lors de la mise à jour du profil: $e';
@@ -175,9 +175,9 @@ class AuthService {
   /// Récupérer les données utilisateur en tant que modèle
   Future<AppUserModel.User?> getUserData(String uid) async {
     try {
-      final doc = await _firestore.collection('users').doc(uid).get();
-      if (!doc.exists) return null;
-      return AppUserModel.User.fromFirestore(doc);
+      final response =
+          await _supabase.from('users').select().eq('uid', uid).single();
+      return AppUserModel.User.fromJson(response);
     } catch (e) {
       return null;
     }
@@ -186,8 +186,8 @@ class AuthService {
   /// Supprimer le compte utilisateur (attend uid) et renvoie Map
   Future<Map<String, dynamic>> deleteAccount(String uid) async {
     try {
-      // Supprimer le document Firestore
-      await _firestore.collection('users').doc(uid).delete();
+      // Supprimer le document Supabase
+      await _supabase.from('users').delete().eq('uid', uid);
 
       // Supprimer l'utilisateur authentifié si c'est le même
       final user = _firebaseAuth.currentUser;

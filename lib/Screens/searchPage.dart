@@ -14,8 +14,8 @@ class SearchPage extends StatefulWidget {
 
 class _SearchPageState extends State<SearchPage> {
   final TextEditingController _searchController = TextEditingController();
-  double _minPrice = 500;
-  double _maxPrice = 1500;
+  double _minPrice = 0; // Pas de filtre prix minimum initial
+  double _maxPrice = 10000; // Prix maximum large
   String? _selectedType;
   int _selectedRooms = 0;
   List<Property> _filteredProperties = [];
@@ -55,8 +55,21 @@ class _SearchPageState extends State<SearchPage> {
           if (propertyProvider.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
+
+          // Debug logs
+          print(
+              'PropertyProvider properties: ${propertyProvider.properties?.length ?? 0} items');
+          if (propertyProvider.properties != null) {
+            for (var prop in propertyProvider.properties!) {
+              print(
+                  'Property: ${prop.id} - ${prop.title} - Price: ${prop.price} - Status: ${prop.status}');
+            }
+          }
+
           _filteredProperties =
               _applyFilters(propertyProvider.properties ?? []);
+          print('Filtered properties: ${_filteredProperties.length} items');
+
           if (_filteredProperties.isEmpty) {
             return const Center(child: Text('Aucun logement trouvé'));
           }
@@ -99,20 +112,31 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   List<Property> _applyFilters(List<Property> allProperties) {
+    print('Applying filters to ${allProperties.length} properties');
+    print(
+        'Filter criteria: minPrice=$_minPrice, maxPrice=$_maxPrice, type=$_selectedType, rooms=$_selectedRooms, search="${_searchController.text}"');
+
     return allProperties.where((p) {
       if (_searchController.text.isNotEmpty &&
           !p.title
               .toLowerCase()
               .contains(_searchController.text.toLowerCase())) {
+        print('Property ${p.id} filtered out by search text');
         return false;
       }
       if (p.price < _minPrice || p.price > _maxPrice) {
+        print(
+            'Property ${p.id} filtered out by price: ${p.price} not in [$_minPrice, $_maxPrice]');
         return false;
       }
       if (_selectedType != null && p.type != _selectedType) {
+        print(
+            'Property ${p.id} filtered out by type: ${p.type} != $_selectedType');
         return false;
       }
       if (_selectedRooms > 0 && p.rooms != _selectedRooms) {
+        print(
+            'Property ${p.id} filtered out by rooms: ${p.rooms} != $_selectedRooms');
         return false;
       }
       return true;
@@ -131,6 +155,10 @@ class _SearchPageState extends State<SearchPage> {
   Widget _buildPropertyCard(Property property) {
     final imageUrl =
         property.imageUrls.isNotEmpty ? property.imageUrls.first : null;
+
+    // Debug: Afficher les informations sur les images
+    print(
+        'Property ${property.id}: imageUrls = ${property.imageUrls}, first imageUrl = $imageUrl');
 
     return Card(
       margin: const EdgeInsets.all(8),

@@ -1,8 +1,10 @@
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'package:rent_house/Services/AuthService.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' hide User;
+import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 import 'package:rent_house/Models/AppConstants.dart';
 import 'package:rent_house/Models/property.dart';
@@ -29,7 +31,15 @@ import 'Screens/conversationPage.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await dotenv.load(fileName: "assets/images/.env");
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Initialize Supabase (replace Firebase DB/Storage)
+  await Supabase.initialize(
+    url: 'https://iaiwhqfdisfiyhxpcasr.supabase.co', // Votre URL Supabase
+    anonKey: dotenv.env['SUPABASE_KEY']!, // Clé depuis .env
+  );
+
   runApp(const MyApp());
 }
 
@@ -41,7 +51,7 @@ class MyApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         // Auth state stream (Firebase User)
-        StreamProvider<User?>.value(
+        StreamProvider<firebase_auth.User?>.value(
           value: AuthService().authStateChanges,
           initialData: null,
         ),
@@ -105,7 +115,7 @@ class AuthWrapper extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final firebaseUser = context.watch<User?>();
+    final firebaseUser = context.watch<firebase_auth.User?>();
 
     if (firebaseUser != null) {
       return const GuestHomePage();

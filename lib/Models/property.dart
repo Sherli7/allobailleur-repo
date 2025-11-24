@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 class Property {
   final String id;
   final String ownerId;
@@ -83,12 +81,11 @@ class Property {
     required this.isAvailable,
     this.isNew = false, // Valeur par défaut
     this.distance, // Optionnel
-  }) : rooms = rooms ?? bedrooms ?? 0;
+  }) : rooms = rooms ?? 0;
 
-  factory Property.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+  factory Property.fromJson(Map<String, dynamic> data) {
     return Property(
-      id: doc.id,
+      id: data['id'] ?? '',
       ownerId: data['ownerId'] ?? '',
       title: data['title'] ?? '',
       description: data['description'] ?? '',
@@ -125,13 +122,17 @@ class Property {
       latitude: (data['latitude'] as num?)?.toDouble() ?? 0.0,
       longitude: (data['longitude'] as num?)?.toDouble() ?? 0.0,
       status: data['status'] ?? 'published',
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt: data['createdAt'] != null
+          ? DateTime.parse(data['createdAt'])
+          : DateTime.now(),
+      updatedAt: data['updatedAt'] != null
+          ? DateTime.parse(data['updatedAt'])
+          : DateTime.now(),
       isAvailable: data['isAvailable'] ?? true,
     );
   }
 
-  Map<String, dynamic> toFirestore() {
+  Map<String, dynamic> toJson() {
     return {
       'ownerId': ownerId,
       'title': title,
@@ -163,8 +164,8 @@ class Property {
       'latitude': latitude,
       'longitude': longitude,
       'status': status,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'updatedAt': Timestamp.fromDate(updatedAt),
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt.toIso8601String(),
       'isAvailable': isAvailable,
     };
   }

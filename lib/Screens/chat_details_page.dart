@@ -11,7 +11,6 @@ import 'package:rent_house/Models/conversation.dart';
 import 'package:rent_house/Models/message.dart';
 import 'package:rent_house/Providers/messages_provider.dart';
 import 'package:rent_house/Services/messages_service.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:io';
 
 class ChatDetailsPage extends StatefulWidget {
@@ -388,8 +387,8 @@ class _ChatDetailsPageState extends State<ChatDetailsPage> {
     }
   }
 
-  String _formatTimestamp(Timestamp timestamp) {
-    final date = timestamp.toDate();
+  String _formatTimestamp(DateTime timestamp) {
+    final date = timestamp;
     final now = DateTime.now();
     if (date.difference(now).inDays.abs() < 1) {
       return MaterialLocalizations.of(context)

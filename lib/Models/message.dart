@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 enum MessageType {
   text,
   image,
@@ -13,7 +11,7 @@ class Message {
   final String text;
   final String? imageUrl;
   final String? videoUrl; // NOUVEAU: URL vidéo uploadée
-  final Timestamp timestamp;
+  final DateTime timestamp;
   final bool isRead;
   final List<String> readBy;
 
@@ -39,31 +37,33 @@ class Message {
     return MessageType.text;
   }
 
-  /// Convertit l'instance en Map pour Firestore
+  /// Convertit l'instance en Map pour JSON
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'senderId': senderId,
+      'sender_id': senderId,
       'text': text,
-      if (imageUrl != null) 'imageUrl': imageUrl,
-      if (videoUrl != null) 'videoUrl': videoUrl, // Seulement si présent
-      'timestamp': timestamp,
-      'isRead': isRead,
-      'readBy': readBy,
+      if (imageUrl != null) 'image_url': imageUrl,
+      if (videoUrl != null) 'video_url': videoUrl, // Seulement si présent
+      'timestamp': timestamp.toIso8601String(),
+      'is_read': isRead,
+      'read_by': readBy,
     };
   }
 
-  /// Crée une instance à partir d'un Map Firestore
+  /// Crée une instance à partir d'un Map JSON
   factory Message.fromJson(Map<String, dynamic> json) {
     return Message(
       id: json['id'] as String? ?? '',
-      senderId: json['senderId'] as String? ?? '',
+      senderId: json['sender_id'] as String? ?? '',
       text: json['text'] as String? ?? '',
-      imageUrl: json['imageUrl'] as String?,
-      videoUrl: json['videoUrl'] as String?, // Peut être null
-      timestamp: json['timestamp'] as Timestamp? ?? Timestamp.now(),
-      isRead: json['isRead'] as bool? ?? false,
-      readBy: List<String>.from(json['readBy'] ?? []),
+      imageUrl: json['image_url'] as String?,
+      videoUrl: json['video_url'] as String?, // Peut être null
+      timestamp: json['timestamp'] != null
+          ? DateTime.parse(json['timestamp'])
+          : DateTime.now(),
+      isRead: json['is_read'] as bool? ?? false,
+      readBy: List<String>.from(json['read_by'] ?? []),
     );
   }
 
@@ -74,7 +74,7 @@ class Message {
     String? text,
     String? imageUrl,
     String? videoUrl,
-    Timestamp? timestamp,
+    DateTime? timestamp,
     bool? isRead,
     List<String>? readBy,
   }) {

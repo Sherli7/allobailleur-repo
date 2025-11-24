@@ -217,7 +217,7 @@ class _CreatePropertyPageState extends State<CreatePropertyPage> {
         price: price,
         surface: surface,
         currency: _currency,
-        bedrooms: bedrooms,
+        rooms: bedrooms,
         bathrooms: bathrooms,
         balconies: balconies,
         leaseMonths: leaseMonths,
@@ -299,7 +299,20 @@ class _CreatePropertyPageState extends State<CreatePropertyPage> {
         );
       }
 
-      await propertyProvider.createProperty(property, images: _selectedImages);
+      final result = await propertyProvider.createProperty(property,
+          images: _selectedImages);
+
+      if (result['success'] != true) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+                content: Text(
+                    'Erreur lors de la publication: ${result['message']}')),
+          );
+        }
+        setState(() => _isLoading = false);
+        return;
+      }
 
       // Close progress dialog if it was shown
       if (_selectedImages.isNotEmpty && Navigator.canPop(context)) {

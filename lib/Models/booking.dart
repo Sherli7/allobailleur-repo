@@ -1,5 +1,3 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 class Booking {
   final String id;
   final String guestId;
@@ -25,37 +23,45 @@ class Booking {
     required this.updatedAt,
   });
 
-  factory Booking.fromFirestore(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
+  factory Booking.fromJson(Map<String, dynamic> data) {
     return Booking(
-      id: doc.id,
-      guestId: data['guestId'] ?? '',
-      propertyId: data['propertyId'] ?? '',
-      hostId: data['hostId'] ?? '',
-      checkInDate:
-          (data['checkInDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      checkOutDate:
-          (data['checkOutDate'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      totalPrice: (data['totalPrice'] as num?)?.toDouble() ?? 0.0,
+      id: data['id'] ?? '',
+      guestId: data['guest_id'] ?? '',
+      propertyId: data['property_id'] ?? '',
+      hostId: data['host_id'] ?? '',
+      checkInDate: data['check_in_date'] != null
+          ? DateTime.parse(data['check_in_date'])
+          : DateTime.now(),
+      checkOutDate: data['check_out_date'] != null
+          ? DateTime.parse(data['check_out_date'])
+          : DateTime.now(),
+      totalPrice: (data['total_price'] as num?)?.toDouble() ?? 0.0,
       status: data['status'] ?? 'pending',
-      createdAt: (data['createdAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
-      updatedAt: (data['updatedAt'] as Timestamp?)?.toDate() ?? DateTime.now(),
+      createdAt: data['created_at'] != null
+          ? DateTime.parse(data['created_at'])
+          : DateTime.now(),
+      updatedAt: data['updated_at'] != null
+          ? DateTime.parse(data['updated_at'])
+          : DateTime.now(),
     );
   }
 
-  Map<String, dynamic> toFirestore() {
+  Map<String, dynamic> toJson() {
     return {
-      'guestId': guestId,
-      'propertyId': propertyId,
-      'hostId': hostId,
-      'checkInDate': Timestamp.fromDate(checkInDate),
-      'checkOutDate': Timestamp.fromDate(checkOutDate),
-      'totalPrice': totalPrice,
+      'guest_id': guestId,
+      'property_id': propertyId,
+      'host_id': hostId,
+      'check_in_date': checkInDate.toIso8601String(),
+      'check_out_date': checkOutDate.toIso8601String(),
+      'total_price': totalPrice,
       'status': status,
-      'createdAt': Timestamp.fromDate(createdAt),
-      'updatedAt': Timestamp.fromDate(updatedAt),
+      'created_at': createdAt.toIso8601String(),
+      'updated_at': updatedAt.toIso8601String(),
     };
   }
+
+  // Alias for compatibility
+  factory Booking.fromFirestore(data) => Booking.fromJson(data);
 
   Booking copyWith({
     String? id,

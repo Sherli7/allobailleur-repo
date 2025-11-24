@@ -50,5 +50,13 @@
     });
   });
 </script>
+
+<!-- Prevent form submission from reloading the page -->
+<script>
+  document.addEventListener('submit', function(e) {
+    e.preventDefault();
+  });
+</script>
+
 </body>
 </html>

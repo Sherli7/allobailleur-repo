@@ -1,25 +1,25 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:rent_house/Models/booking.dart';
 
 class BookingService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final SupabaseClient _supabase = Supabase.instance.client;
 
   /// Créer une nouvelle réservation
   Future<Map<String, dynamic>> createBooking(Booking booking) async {
     try {
-      final docRef = await _firestore.collection('bookings').add(
-            booking.toFirestore(),
-          );
+      final response =
+          await _supabase.from('bookings').insert(booking.toJson()).select();
+      final bookingId = response[0]['id'];
 
       return {
         'success': true,
         'message': 'Réservation créée',
-        'bookingId': docRef.id,
+        'bookingId': bookingId,
       };
     } catch (e) {
       return {
         'success': false,
-        'message': 'Erreur: $e',
+        'message': 'Erreur lors de la création: $e',
       };
     }
   }
@@ -27,11 +27,12 @@ class BookingService {
   /// Récupérer une réservation
   Future<Booking?> getBooking(String bookingId) async {
     try {
-      final doc = await _firestore.collection('bookings').doc(bookingId).get();
-      if (doc.exists) {
-        return Booking.fromFirestore(doc);
-      }
-      return null;
+      final response = await _supabase
+          .from('bookings')
+          .select()
+          .eq('id', bookingId)
+          .single();
+      return Booking.fromJson(response);
     } catch (e) {
       // Log error to a real logging service
       return null;
@@ -39,38 +40,44 @@ class BookingService {
   }
 
   /// Récupérer les réservations de l'utilisateur (invité)
-  Stream<List<Booking>> getUserBookings(String userId) {
-    return _firestore
-        .collection('bookings')
-        .where('guestId', isEqualTo: userId)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map((doc) => Booking.fromFirestore(doc)).toList();
-    });
+  Future<List<Booking>> getUserBookings(String userId) async {
+    try {
+      final response = await _supabase
+          .from('bookings')
+          .select()
+          .eq('guest_id', userId)
+          .order('created_at', ascending: false);
+      return response.map((data) => Booking.fromJson(data)).toList();
+    } catch (e) {
+      return [];
+    }
   }
 
   /// Récupérer les réservations pour l'hôte
-  Stream<List<Booking>> getHostBookings(String hostId) {
-    return _firestore
-        .collection('bookings')
-        .where('hostId', isEqualTo: hostId)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map((doc) => Booking.fromFirestore(doc)).toList();
-    });
+  Future<List<Booking>> getHostBookings(String hostId) async {
+    try {
+      final response = await _supabase
+          .from('bookings')
+          .select()
+          .eq('host_id', hostId)
+          .order('created_at', ascending: false);
+      return response.map((data) => Booking.fromJson(data)).toList();
+    } catch (e) {
+      return [];
+    }
   }
 
   /// Récupérer les réservations pour une propriété
-  Stream<List<Booking>> getPropertyBookings(String propertyId) {
-    return _firestore
-        .collection('bookings')
-        .where('propertyId', isEqualTo: propertyId)
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map((doc) => Booking.fromFirestore(doc)).toList();
-    });
+  Future<List<Booking>> getPropertyBookings(String propertyId) async {
+    try {
+      final response = await _supabase
+          .from('bookings')
+          .select()
+          .eq('property_id', propertyId);
+      return response.map((data) => Booking.fromJson(data)).toList();
+    } catch (e) {
+      return [];
+    }
   }
 
   /// Vérifier la disponibilité
@@ -80,15 +87,15 @@ class BookingService {
     DateTime checkOutDate,
   ) async {
     try {
-      final snapshot = await _firestore
-          .collection('bookings')
-          .where('propertyId', isEqualTo: propertyId)
-          .where('status', whereIn: ['confirmed', 'pending'])
-          .get();
+      final response = await _supabase
+          .from('bookings')
+          .select()
+          .eq('property_id', propertyId)
+          .or('status.eq.confirmed,status.eq.pending');
 
-      for (var doc in snapshot.docs) {
-        final booking = Booking.fromFirestore(doc);
-        
+      for (var data in response) {
+        final booking = Booking.fromJson(data);
+
         // Vérifier les chevauchements
         if ((checkInDate.isBefore(booking.checkOutDate) &&
             checkOutDate.isAfter(booking.checkInDate))) {
@@ -108,10 +115,10 @@ class BookingService {
     Booking booking,
   ) async {
     try {
-      await _firestore
-          .collection('bookings')
-          .doc(bookingId)
-          .update(booking.copyWith(updatedAt: DateTime.now()).toFirestore());
+      await _supabase
+          .from('bookings')
+          .update(booking.copyWith(updatedAt: DateTime.now()).toJson())
+          .eq('id', bookingId);
 
       return {
         'success': true,
@@ -128,13 +135,10 @@ class BookingService {
   /// Annuler une réservation
   Future<Map<String, dynamic>> cancelBooking(String bookingId) async {
     try {
-      await _firestore
-          .collection('bookings')
-          .doc(bookingId)
-          .update({
+      await _supabase.from('bookings').update({
         'status': 'cancelled',
-        'updatedAt': Timestamp.now(),
-      });
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', bookingId);
 
       return {
         'success': true,
@@ -151,13 +155,10 @@ class BookingService {
   /// Confirmer une réservation
   Future<Map<String, dynamic>> confirmBooking(String bookingId) async {
     try {
-      await _firestore
-          .collection('bookings')
-          .doc(bookingId)
-          .update({
+      await _supabase.from('bookings').update({
         'status': 'confirmed',
-        'updatedAt': Timestamp.now(),
-      });
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', bookingId);
 
       return {
         'success': true,
@@ -174,7 +175,7 @@ class BookingService {
   /// Supprimer une réservation
   Future<Map<String, dynamic>> deleteBooking(String bookingId) async {
     try {
-      await _firestore.collection('bookings').doc(bookingId).delete();
+      await _supabase.from('bookings').delete().eq('id', bookingId);
 
       return {
         'success': true,

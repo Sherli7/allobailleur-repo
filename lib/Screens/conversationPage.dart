@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:rent_house/Models/conversation.dart'; // Assume un modèle Conversation (à implémenter)
 import 'package:rent_house/Providers/messages_provider.dart'; // Provider for messages
 import 'package:rent_house/Screens/searchPage.dart'; // Pour bouton "Parcourir"
@@ -176,8 +175,8 @@ class _ConversationPageState extends State<ConversationPage> {
     );
   }
 
-  String _formatTimestamp(Timestamp timestamp) {
-    final date = timestamp.toDate();
+  String _formatTimestamp(DateTime timestamp) {
+    final date = timestamp;
     final now = DateTime.now();
     if (date.difference(now).inDays.abs() < 1) {
       return '${date.hour.toString().padLeft(2, '0')}:${date.minute.toString().padLeft(2, '0')}';

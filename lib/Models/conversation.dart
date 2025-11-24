@@ -1,11 +1,9 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-
 class Conversation {
   final String id;
   final String otherUserId;
   final String otherUserName;
   final String lastMessage;
-  final Timestamp timestamp;
+  final DateTime timestamp;
   final int unreadCount;
 
   Conversation({
@@ -17,27 +15,30 @@ class Conversation {
     required this.unreadCount,
   });
 
-  /// Convertit l'instance en Map pour Firestore
+  /// Convertit l'instance en Map pour JSON
   Map<String, dynamic> toJson() {
     return {
       'id': id,
-      'otherUserId': otherUserId,
-      'otherUserName': otherUserName,
-      'lastMessage': lastMessage,
-      'timestamp': timestamp,
-      'unreadCount': unreadCount,
+      'other_user_id': otherUserId,
+      'other_user_name': otherUserName,
+      'last_message': lastMessage,
+      'timestamp': timestamp.toIso8601String(),
+      'unread_count': unreadCount,
     };
   }
 
-  /// Crée une instance à partir d'un Map Firestore
+  /// Crée une instance à partir d'un Map JSON
   factory Conversation.fromJson(Map<String, dynamic> json) {
     return Conversation(
       id: json['id'] as String? ?? '',
-      otherUserId: json['otherUserId'] as String? ?? '',
-      otherUserName: json['otherUserName'] as String? ?? 'Utilisateur inconnu',
-      lastMessage: json['lastMessage'] as String? ?? '',
-      timestamp: json['timestamp'] as Timestamp? ?? Timestamp.now(),
-      unreadCount: json['unreadCount'] as int? ?? 0,
+      otherUserId: json['other_user_id'] as String? ?? '',
+      otherUserName:
+          json['other_user_name'] as String? ?? 'Utilisateur inconnu',
+      lastMessage: json['last_message'] as String? ?? '',
+      timestamp: json['timestamp'] != null
+          ? DateTime.parse(json['timestamp'])
+          : DateTime.now(),
+      unreadCount: json['unread_count'] as int? ?? 0,
     );
   }
 
@@ -47,7 +48,7 @@ class Conversation {
     String? otherUserId,
     String? otherUserName,
     String? lastMessage,
-    Timestamp? timestamp,
+    DateTime? timestamp,
     int? unreadCount,
   }) {
     return Conversation(

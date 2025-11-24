@@ -41,8 +41,9 @@ class MessagesService {
           otherUserId: otherUserId,
           otherUserName: otherUserName,
           lastMessage: lastMessage?['text'] ?? '',
-          timestamp:
-              (lastMessage?['timestamp'] as Timestamp?) ?? Timestamp.now(),
+          timestamp: lastMessage?['timestamp'] != null
+              ? DateTime.parse(lastMessage!['timestamp'])
+              : DateTime.now(),
           unreadCount: unreadCount,
         ));
       }

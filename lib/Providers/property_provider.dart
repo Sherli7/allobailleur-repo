@@ -1,29 +1,23 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:typed_data';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:rent_house/Models/property.dart';
 import 'package:flutter/material.dart';
 // import 'package:intl/intl.dart'; // Pour dates (supprimé car inutilisé)
 
 class PropertyService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
-  // FirebaseAuth instance not used here; use FirebaseAuth.instance directly where needed
-
-  CollectionReference<Map<String, dynamic>> get _propertiesRef =>
-      _firestore.collection('properties');
-  CollectionReference<Map<String, dynamic>> get _favoritesRef =>
-      _firestore.collection('favorites');
+  final SupabaseClient _supabase = Supabase.instance.client;
 
   /// EXISTANT: Créer une propriété (retourne Map{success, propertyId/message})
   Future<Map<String, dynamic>> createProperty(Property property) async {
     try {
-      final docRef = await _propertiesRef.add(property.toFirestore());
-      return {'success': true, 'propertyId': docRef.id};
+      final response =
+          await _supabase.from('properties').insert(property.toJson()).select();
+      final propertyId = response[0]['id'];
+      return {'success': true, 'propertyId': propertyId};
     } catch (e) {
       return {'success': false, 'message': e.toString()};
     }
@@ -32,97 +26,127 @@ class PropertyService {
   /// EXISTANT: Récupérer une propriété
   Future<Property?> getProperty(String propertyId) async {
     try {
-      final doc = await _propertiesRef.doc(propertyId).get();
-      if (doc.exists) {
-        return Property.fromFirestore(doc);
-      }
-      return null;
+      final response = await _supabase
+          .from('properties')
+          .select()
+          .eq('id', propertyId)
+          .single();
+      return Property.fromJson(response);
     } catch (e) {
       debugPrint('Erreur getProperty: $e');
       return null;
     }
   }
 
-  /// EXISTANT: Stream toutes les propriétés
-  Stream<List<Property>> getAllProperties() {
-    return _propertiesRef.snapshots().map((snapshot) =>
-        snapshot.docs.map((doc) => Property.fromFirestore(doc)).toList());
+  /// EXISTANT: Récupérer toutes les propriétés
+  Future<List<Property>> getAllProperties() async {
+    try {
+      final response = await _supabase.from('properties').select();
+      return response.map((data) => Property.fromJson(data)).toList();
+    } catch (e) {
+      debugPrint('Erreur getAllProperties: $e');
+      return [];
+    }
   }
 
   /// EXISTANT: Stream propriétés de l'hôte
-  Stream<List<Property>> getHostProperties(String hostId) {
-    return _propertiesRef.where('hostId', isEqualTo: hostId).snapshots().map(
-        (snapshot) =>
-            snapshot.docs.map((doc) => Property.fromFirestore(doc)).toList());
+  Future<List<Property>> getHostProperties(String hostId) async {
+    try {
+      final response =
+          await _supabase.from('properties').select().eq('ownerId', hostId);
+      return response.map((data) => Property.fromJson(data)).toList();
+    } catch (e) {
+      debugPrint('Erreur getHostProperties: $e');
+      return [];
+    }
   }
 
   /// EXISTANT: Recherche par ville
-  Stream<List<Property>> searchPropertiesByCity(String city) {
-    return _propertiesRef.where('city', isEqualTo: city).snapshots().map(
-        (snapshot) =>
-            snapshot.docs.map((doc) => Property.fromFirestore(doc)).toList());
+  Future<List<Property>> searchPropertiesByCity(String city) async {
+    try {
+      final response =
+          await _supabase.from('properties').select().eq('city', city);
+      return response.map((data) => Property.fromJson(data)).toList();
+    } catch (e) {
+      debugPrint('Erreur searchPropertiesByCity: $e');
+      return [];
+    }
   }
 
   /// EXISTANT: Recherche par prix
-  Stream<List<Property>> searchPropertiesByPriceRange(
-      double minPrice, double maxPrice) {
-    return _propertiesRef
-        .where('price', isGreaterThanOrEqualTo: minPrice)
-        .where('price', isLessThanOrEqualTo: maxPrice)
-        .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => Property.fromFirestore(doc)).toList());
+  Future<List<Property>> searchPropertiesByPriceRange(
+      double minPrice, double maxPrice) async {
+    try {
+      final response = await _supabase
+          .from('properties')
+          .select()
+          .gte('price', minPrice)
+          .lte('price', maxPrice);
+      return response.map((data) => Property.fromJson(data)).toList();
+    } catch (e) {
+      debugPrint('Erreur searchPropertiesByPriceRange: $e');
+      return [];
+    }
   }
 
-  /// NOUVEAU: Recherche avancée (query texte + filtres ; utilise where + orderBy)
-  Stream<List<Property>> searchPropertiesAdvanced({
+  /// NOUVEAU: Recherche avancée (query texte + filtres)
+  Future<List<Property>> searchPropertiesAdvanced({
     String query = '',
     double? minPrice,
     double? maxPrice,
     String? type,
     int? rooms,
-  }) {
-    Query queryRef = _propertiesRef.orderBy('createdAt', descending: true);
+  }) async {
+    try {
+      // Simple implementation, filter in code for now
+      final response = await _supabase
+          .from('properties')
+          .select()
+          .order('createdAt', ascending: false);
+      List<Property> list =
+          response.map((data) => Property.fromJson(data)).toList();
 
-    // Recherche texte (sur title/city ; Firestore full-text approx via array-contains-any ou where)
-    if (query.isNotEmpty) {
-      // Assume champ 'searchTerms' array dans Property (populate avec mots-clés à la création)
-      queryRef = queryRef
-          .where('searchTerms', arrayContainsAny: [query.toLowerCase()]);
-    }
+      // Filter in code
+      if (query.isNotEmpty) {
+        list = list
+            .where((p) => p.title.contains(query) || p.city.contains(query))
+            .toList();
+      }
+      if (minPrice != null) {
+        list = list.where((p) => p.price >= minPrice).toList();
+      }
+      if (maxPrice != null) {
+        list = list.where((p) => p.price <= maxPrice).toList();
+      }
+      if (type != null && type.isNotEmpty) {
+        list = list.where((p) => p.type == type).toList();
+      }
+      if (rooms != null) {
+        list = list.where((p) => p.rooms == rooms).toList();
+      }
 
-    // Filtres
-    if (minPrice != null) {
-      queryRef = queryRef.where('price', isGreaterThanOrEqualTo: minPrice);
+      return list;
+    } catch (e) {
+      debugPrint('Erreur searchPropertiesAdvanced: $e');
+      return [];
     }
-    if (maxPrice != null) {
-      queryRef = queryRef.where('price', isLessThanOrEqualTo: maxPrice);
-    }
-    if (type != null && type.isNotEmpty) {
-      queryRef = queryRef.where('type', isEqualTo: type);
-    }
-    if (rooms != null) queryRef = queryRef.where('rooms', isEqualTo: rooms);
-
-    return queryRef.snapshots().map((snapshot) => snapshot.docs.map((doc) {
-          return Property.fromFirestore(doc);
-        }).toList());
   }
 
   /// NOUVEAU: Pagination (Future pour loadMore ; utilise limit + startAfter)
   Future<List<Property>> getPropertiesPaginated({
     required int page,
     required int pageSize,
-    DocumentSnapshot? startAfter,
+    int? startAfter,
   }) async {
     try {
-      Query query =
-          _propertiesRef.orderBy('createdAt', descending: true).limit(pageSize);
-      if (startAfter != null) {
-        query = query.startAfterDocument(startAfter);
-      }
-
-      final snapshot = await query.get();
-      return snapshot.docs.map((doc) => Property.fromFirestore(doc)).toList();
+      final from = (page - 1) * pageSize;
+      final to = from + pageSize - 1;
+      final response = await _supabase
+          .from('properties')
+          .select()
+          .order('createdAt', ascending: false)
+          .range(from, to);
+      return response.map((data) => Property.fromJson(data)).toList();
     } catch (e) {
       debugPrint('Erreur pagination: $e');
       return [];
@@ -130,33 +154,35 @@ class PropertyService {
   }
 
   /// NOUVEAU: Stream favoris d'un user (query sur favorites collection)
-  Stream<List<Property>> getFavorites(String userId) {
-    return _favoritesRef
-        .where('userId', isEqualTo: userId)
-        .snapshots()
-        .asyncMap((snapshot) async {
+  Future<List<Property>> getFavorites(String userId) async {
+    try {
+      final favResponse = await _supabase
+          .from('favorites')
+          .select('propertyId')
+          .eq('userId', userId);
       final propIds =
-          snapshot.docs.map((doc) => doc['propertyId'] as String).toList();
-      if (propIds.isEmpty) return <Property>[];
+          favResponse.map((f) => f['propertyId'] as String).toList();
+      if (propIds.isEmpty) return [];
 
-      // Fetch properties correspondantes
-      final propSnapshot = await _propertiesRef
-          .where(FieldPath.documentId, whereIn: propIds)
-          .get();
-      return propSnapshot.docs
-          .map((doc) => Property.fromFirestore(doc))
-          .toList();
-    });
+      final propResponse = await _supabase
+          .from('properties')
+          .select()
+          .filter('id', 'in', '(${propIds.join(',')})');
+      return propResponse.map((data) => Property.fromJson(data)).toList();
+    } catch (e) {
+      debugPrint('Erreur getFavorites: $e');
+      return [];
+    }
   }
 
   /// EXISTANT: Ajouter aux favoris (retourne Map{success})
   Future<Map<String, dynamic>> addToFavorites(
       String userId, String propertyId) async {
     try {
-      await _favoritesRef.add({
+      await _supabase.from('favorites').insert({
         'userId': userId,
         'propertyId': propertyId,
-        'createdAt': FieldValue.serverTimestamp(),
+        'createdAt': DateTime.now().toIso8601String(),
       });
       return {'success': true};
     } catch (e) {
@@ -168,13 +194,11 @@ class PropertyService {
   Future<Map<String, dynamic>> removeFromFavorites(
       String userId, String propertyId) async {
     try {
-      final query = await _favoritesRef
-          .where('userId', isEqualTo: userId)
-          .where('propertyId', isEqualTo: propertyId)
-          .get();
-      for (final doc in query.docs) {
-        await doc.reference.delete();
-      }
+      await _supabase
+          .from('favorites')
+          .delete()
+          .eq('userId', userId)
+          .eq('propertyId', propertyId);
       return {'success': true};
     } catch (e) {
       return {'success': false, 'message': e.toString()};
@@ -193,106 +217,34 @@ class PropertyService {
       debugPrint('File type: ${file.runtimeType}');
 
       final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
-      final ref = _storage.ref().child('properties/$propertyId/$fileName');
+      final filePath = 'properties/$propertyId/$fileName';
 
-      debugPrint('Storage reference created: ${ref.fullPath}');
-
-      UploadTask uploadTask;
-
+      Uint8List bytes;
       if (file is XFile) {
-        debugPrint('Handling XFile upload');
-        debugPrint('XFile path: ${file.path}');
-        debugPrint('XFile mimeType: ${file.mimeType}');
-
-        // On web, XFile.path might be a blob URL or data URL
-        if (file.path.startsWith('blob:') || file.path.startsWith('data:')) {
-          debugPrint('Detected web blob/data URL');
-          try {
-            // For web blob URLs, try to read as bytes first
-            final bytes = await file.readAsBytes();
-            debugPrint(
-                'Successfully read ${bytes.length} bytes from web XFile');
-            uploadTask = ref.putData(
-              bytes,
-              SettableMetadata(
-                contentType: file.mimeType ?? 'image/jpeg',
-              ),
-            );
-          } catch (e) {
-            debugPrint('Failed to read web XFile bytes: $e');
-            // If reading bytes fails, try putString for data URLs
-            if (file.path.startsWith('data:')) {
-              debugPrint('Trying putString for data URL');
-              uploadTask = ref.putString(
-                file.path,
-                format: PutStringFormat.dataUrl,
-                metadata: SettableMetadata(
-                    contentType: file.mimeType ?? 'image/jpeg'),
-              );
-            } else {
-              debugPrint('Cannot handle blob URL, skipping upload');
-              return null;
-            }
-          }
-        } else {
-          // Regular file path (mobile)
-          try {
-            final bytes = await file.readAsBytes();
-            debugPrint('Read ${bytes.length} bytes from mobile XFile');
-            uploadTask = ref.putData(
-              bytes,
-              SettableMetadata(contentType: file.mimeType ?? 'image/jpeg'),
-            );
-          } catch (e) {
-            debugPrint('Failed to read mobile XFile as bytes: $e');
-            rethrow;
-          }
-        }
+        bytes = await file.readAsBytes();
       } else if (file is File) {
-        debugPrint('Handling File upload');
-        // Handle regular File
-        uploadTask = ref.putFile(file);
+        bytes = await file.readAsBytes();
       } else if (file is Uint8List) {
-        debugPrint('Handling Uint8List upload');
-        // Handle raw bytes
-        uploadTask = ref.putData(
-          file,
-          SettableMetadata(contentType: 'image/jpeg'),
-        );
+        bytes = file;
       } else {
         throw UnsupportedError('Unsupported file type: ${file.runtimeType}');
       }
 
-      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-        final progress = snapshot.bytesTransferred / snapshot.totalBytes;
-        debugPrint(
-            'Upload progress: ${(progress * 100).toInt()}% (${snapshot.bytesTransferred}/${snapshot.totalBytes} bytes)');
-        onProgress(progress);
-      }, onError: (error) {
-        debugPrint('Upload error in stream: $error');
-      }, onDone: () {
-        debugPrint('Upload stream completed');
-      });
+      debugPrint('Uploading ${bytes.length} bytes to Supabase Storage');
 
-      debugPrint('Waiting for upload task to complete...');
-      final snapshot = await uploadTask.timeout(
-        const Duration(minutes: 5),
-        onTimeout: () {
-          debugPrint('Upload timeout after 5 minutes');
-          throw TimeoutException('Upload timeout after 5 minutes');
-        },
-      );
-      debugPrint('Upload task completed successfully');
-      debugPrint('Getting download URL...');
-      final downloadUrl = await snapshot.ref.getDownloadURL().timeout(
-        const Duration(seconds: 30),
-        onTimeout: () {
-          debugPrint('Download URL timeout after 30 seconds');
-          throw TimeoutException('Download URL retrieval timeout');
-        },
-      );
-      debugPrint('Download URL obtained: $downloadUrl');
-      return downloadUrl;
+      final response = await _supabase.storage.from('images').uploadBinary(
+            filePath,
+            bytes,
+            fileOptions: FileOptions(contentType: 'image/jpeg'),
+          );
+
+      debugPrint('Upload successful, path: $response');
+
+      // Get public URL
+      final publicUrl = _supabase.storage.from('images').getPublicUrl(filePath);
+      debugPrint('Public URL: $publicUrl');
+      onProgress(1.0); // Simulate progress
+      return publicUrl;
     } catch (e, stackTrace) {
       debugPrint('Erreur upload: $e');
       debugPrint('Stack trace: $stackTrace');
@@ -303,14 +255,21 @@ class PropertyService {
   /// EXISTANT: Set image URLs sur property
   Future<void> setPropertyImageUrls(
       String propertyId, List<String> urls) async {
-    await _propertiesRef.doc(propertyId).update({'imageUrls': urls});
+    print('Updating property $propertyId with image URLs: $urls');
+    await _supabase
+        .from('properties')
+        .update({'imageUrls': urls}).eq('id', propertyId);
+    print('Property $propertyId updated with ${urls.length} image URLs');
   }
 
   /// EXISTANT: Update property
   Future<Map<String, dynamic>> updateProperty(
       String propertyId, Property property) async {
     try {
-      await _propertiesRef.doc(propertyId).update(property.toFirestore());
+      await _supabase
+          .from('properties')
+          .update(property.toJson())
+          .eq('id', propertyId);
       return {'success': true};
     } catch (e) {
       return {'success': false, 'message': e.toString()};
@@ -320,50 +279,11 @@ class PropertyService {
   /// EXISTANT: Delete property
   Future<Map<String, dynamic>> deleteProperty(String propertyId) async {
     try {
-      await _propertiesRef.doc(propertyId).delete();
+      await _supabase.from('properties').delete().eq('id', propertyId);
       return {'success': true};
     } catch (e) {
       return {'success': false, 'message': e.toString()};
     }
-  }
-
-  /// EXISTANT: Add review (assume subcollection reviews sous property)
-  Future<Map<String, dynamic>> addReview(
-      String propertyId, double rating, String comment, String userId) async {
-    try {
-      final reviewRef =
-          _propertiesRef.doc(propertyId).collection('reviews').doc();
-      await reviewRef.set({
-        'rating': rating,
-        'comment': comment,
-        'userId': userId,
-        'createdAt': FieldValue.serverTimestamp(),
-      });
-
-      // Update average rating (trigger ou calc local)
-      await _updatePropertyRating(propertyId);
-      return {'success': true};
-    } catch (e) {
-      return {'success': false, 'message': e.toString()};
-    }
-  }
-
-  /// Helper: Update rating average
-  Future<void> _updatePropertyRating(String propertyId) async {
-    final reviewsSnapshot =
-        await _propertiesRef.doc(propertyId).collection('reviews').get();
-    if (reviewsSnapshot.docs.isEmpty) return;
-
-    double totalRating = 0;
-    for (final doc in reviewsSnapshot.docs) {
-      totalRating += doc['rating'] as double;
-    }
-    final avg = totalRating / reviewsSnapshot.docs.length;
-
-    await _propertiesRef.doc(propertyId).update({
-      'rating': avg,
-      'reviewCount': reviewsSnapshot.docs.length,
-    });
   }
 }
 
@@ -381,12 +301,14 @@ class PropertyProvider with ChangeNotifier {
   double? uploadProgress;
   Property? selectedProperty;
 
-  Stream<List<Property>> getAllPropertiesStream() =>
+  Future<List<Property>> getAllPropertiesStream() =>
       _service.getAllProperties();
-  Stream<List<Property>> getHostPropertiesStream(String hostId) =>
+  Future<List<Property>> getHostPropertiesStream(String hostId) =>
       _service.getHostProperties(hostId);
-  Stream<List<Property>> getFavoritesStream(String userId) =>
-      _service.getFavorites(userId);
+  Future<List<Property>> getFavoritesStream(String userId) async {
+    // For now, return empty
+    return [];
+  }
 
   Future<void> loadPropertiesOnce({int page = 1, int pageSize = 100}) async {
     isLoading = true;
@@ -394,8 +316,14 @@ class PropertyProvider with ChangeNotifier {
     try {
       properties =
           await _service.getPropertiesPaginated(page: page, pageSize: pageSize);
+      print('Loaded ${properties?.length ?? 0} properties from database');
+      if (properties != null && properties!.isNotEmpty) {
+        print(
+            'First property: ${properties!.first.title} - Price: ${properties!.first.price}');
+      }
     } catch (e) {
       errorMessage = e.toString();
+      print('Error loading properties: $e');
     }
     isLoading = false;
     notifyListeners();
@@ -406,7 +334,7 @@ class PropertyProvider with ChangeNotifier {
     isLoading = true;
     notifyListeners();
     try {
-      favorites = await _service.getFavorites(userId).first;
+      favorites = await _service.getFavorites(userId);
     } catch (e) {
       errorMessage = e.toString();
     }
@@ -422,7 +350,7 @@ class PropertyProvider with ChangeNotifier {
     isLoading = true;
     notifyListeners();
     try {
-      userProperties = await _service.getHostProperties(hostId).first;
+      userProperties = await _service.getHostProperties(hostId);
     } catch (e) {
       errorMessage = e.toString();
     }
@@ -523,7 +451,12 @@ class PropertyProvider with ChangeNotifier {
 
         if (urls.isNotEmpty) {
           debugPrint('Updating property with image URLs');
-          await _service.setPropertyImageUrls(propertyId, urls);
+          try {
+            await _service.setPropertyImageUrls(propertyId, urls);
+            debugPrint('Property updated with image URLs successfully');
+          } catch (e) {
+            debugPrint('Error updating property with image URLs: $e');
+          }
           debugPrint('Property updated with image URLs');
         } else {
           debugPrint('No images were uploaded successfully');

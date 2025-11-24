@@ -546,10 +546,24 @@ class _BookingPageState extends State<BookingPage> {
       // );
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Réservation confirmée!')),
-        );
-        Navigator.pop(context);
+        // Mark property as rented (remove from listings)
+        final propertyProvider =
+            Provider.of<PropertyProvider>(context, listen: false);
+        final success = await propertyProvider.completeRental(widget.property);
+
+        if (success) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+                content: Text('Location confirmée — annonce retirée')),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Location confirmée')),
+          );
+        }
+
+        // Return to the tab root so the removed listing is no longer visible
+        Navigator.of(context).popUntil((route) => route.isFirst);
       }
     } catch (e) {
       if (mounted) {

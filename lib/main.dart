@@ -21,6 +21,7 @@ import 'package:rent_house/Screens/propertyDetailsPage.dart'
 import 'package:rent_house/Screens/viewPostingPage.dart';
 import 'package:rent_house/Screens/favoritesPage.dart';
 import 'package:rent_house/Screens/myListingsPage.dart';
+import 'package:rent_house/Screens/ownerDashboard.dart';
 import 'package:rent_house/Providers/auth_provider.dart' as app_auth;
 import 'package:rent_house/Providers/property_provider.dart';
 import 'package:rent_house/Providers/booking_provider.dart';
@@ -80,6 +81,8 @@ class MyApp extends StatelessWidget {
           SearchPage.routeName: (context) => const SearchPage(),
           FavoritesPage.routeName: (context) => const FavoritesPage(),
           MyListingsPage.routeName: (context) => const MyListingsPage(),
+          // Owner dashboard
+          OwnerDashboard.routeName: (context) => const OwnerDashboard(),
           PropertyDetailsPage.routeName: (context) {
             final property = ModalRoute.of(context)?.settings.arguments;
             if (property != null) {

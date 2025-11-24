@@ -41,7 +41,12 @@ class PropertyService {
   /// EXISTANT: Récupérer toutes les propriétés
   Future<List<Property>> getAllProperties() async {
     try {
-      final response = await _supabase.from('properties').select();
+      // Exclure les propriétés déjà louées (status = 'rented')
+      final response = await _supabase
+          .from('properties')
+          .select()
+          .neq('status', 'rented')
+          .order('createdAt', ascending: false);
       return response.map((data) => Property.fromJson(data)).toList();
     } catch (e) {
       debugPrint('Erreur getAllProperties: $e');
@@ -141,9 +146,11 @@ class PropertyService {
     try {
       final from = (page - 1) * pageSize;
       final to = from + pageSize - 1;
+      // Exclure les propriétés louées
       final response = await _supabase
           .from('properties')
           .select()
+          .neq('status', 'rented')
           .order('createdAt', ascending: false)
           .range(from, to);
       return response.map((data) => Property.fromJson(data)).toList();
@@ -280,6 +287,33 @@ class PropertyService {
   Future<Map<String, dynamic>> deleteProperty(String propertyId) async {
     try {
       await _supabase.from('properties').delete().eq('id', propertyId);
+      return {'success': true};
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  /// NOUVEAU: Marquer la propriété comme louée (status = 'rented')
+  Future<Map<String, dynamic>> markPropertyAsRented(String propertyId) async {
+    try {
+      await _supabase.from('properties').update({
+        'status': 'rented',
+        'updatedAt': DateTime.now().toIso8601String()
+      }).eq('id', propertyId);
+      return {'success': true};
+    } catch (e) {
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
+  /// NOUVEAU: Remettre une propriété en ligne (status = 'published')
+  Future<Map<String, dynamic>> markPropertyAsAvailable(
+      String propertyId) async {
+    try {
+      await _supabase.from('properties').update({
+        'status': 'published',
+        'updatedAt': DateTime.now().toIso8601String()
+      }).eq('id', propertyId);
       return {'success': true};
     } catch (e) {
       return {'success': false, 'message': e.toString()};
@@ -478,6 +512,56 @@ class PropertyProvider with ChangeNotifier {
       _service.updateProperty(id, property);
   Future<Map<String, dynamic>> deleteProperty(String id) =>
       _service.deleteProperty(id);
+
+  /// NOUVEAU: Complète la location d'une propriété: marque comme louée
+  /// puis met à jour l'état local (retire la propriété des listes affichées)
+  Future<bool> completeRental(Property property) async {
+    try {
+      final res = await _service.markPropertyAsRented(property.id);
+      if (res['success'] == true) {
+        // Remove from cached lists so UI no longer shows it
+        properties =
+            (properties ?? []).where((p) => p.id != property.id).toList();
+        favorites =
+            (favorites ?? []).where((p) => p.id != property.id).toList();
+        userProperties =
+            (userProperties ?? []).where((p) => p.id != property.id).toList();
+        notifyListeners();
+        return true;
+      }
+      return false;
+    } catch (e) {
+      errorMessage = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// NOUVEAU: Restaurer une propriété précédemment louée (remettre en 'published')
+  /// Récupère ensuite la propriété mise à jour et l'insère dans les listes locales
+  Future<bool> restoreProperty(Property property) async {
+    try {
+      final res = await _service.markPropertyAsAvailable(property.id);
+      if (res['success'] == true) {
+        final fresh = await _service.getProperty(property.id);
+        if (fresh != null) {
+          properties = [fresh, ...(properties ?? [])];
+          // si c'est la propriété de l'utilisateur courant, la remettre aussi
+          final uid = FirebaseAuth.instance.currentUser?.uid;
+          if (uid != null && fresh.ownerId == uid) {
+            userProperties = [fresh, ...(userProperties ?? [])];
+          }
+          notifyListeners();
+        }
+        return true;
+      }
+      return false;
+    } catch (e) {
+      errorMessage = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
 
   Future<Map<String, dynamic>> addToFavorites(
           String userId, String propertyId) =>

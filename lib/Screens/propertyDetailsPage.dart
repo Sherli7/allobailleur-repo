@@ -73,227 +73,269 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
     final authProvider = Provider.of<app_auth.AuthProvider>(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Détails'),
-        centerTitle: true,
-        backgroundColor: Colors.blue.shade700,
-        elevation: 0,
-        actions: [
-          IconButton(
-            icon: Icon(
-              _isFavorite ? Icons.favorite : Icons.favorite_border,
-              color: _isFavorite ? Colors.red : null,
-            ),
-            onPressed: _toggleFavorite,
-          ),
-          IconButton(
-            icon: const Icon(Icons.share),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Partager la propriété')),
-              );
-            },
-          ),
-        ],
-      ),
-      body: SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Image Carousel
-            Stack(
-              children: [
-                if (widget.property.imageUrls.isNotEmpty)
-                  SizedBox(
-                    height: 300,
-                    child: PageView.builder(
+      body: CustomScrollView(
+        slivers: [
+          // SliverAppBar pour un effet parallax et Hero
+          SliverAppBar(
+            expandedHeight: 300,
+            floating: false,
+            pinned: true,
+            flexibleSpace: FlexibleSpaceBar(
+              background: Stack(
+                fit: StackFit.expand,
+                children: [
+                  if (widget.property.imageUrls.isNotEmpty)
+                    PageView.builder(
                       controller: _pageController,
                       onPageChanged: (index) {
                         setState(() => _currentImageIndex = index);
                       },
                       itemCount: widget.property.imageUrls.length,
                       itemBuilder: (context, index) {
-                        return Image.network(
-                          widget.property.imageUrls[index],
-                          fit: BoxFit.cover,
+                        final url = widget.property.imageUrls[index];
+                        return Hero(
+                          tag:
+                              'property-image-${widget.property.id}-$index', // Unique par image
+                          child: Image.network(
+                            url,
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            errorBuilder: (context, error, stackTrace) =>
+                                Container(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHighest,
+                              child: const Icon(Icons.image_not_supported,
+                                  size: 64, color: Colors.grey),
+                            ),
+                          ),
                         );
                       },
+                    )
+                  else
+                    Container(
+                      color:
+                          Theme.of(context).colorScheme.surfaceContainerHighest,
+                      child: const Icon(Icons.image_not_supported,
+                          size: 64, color: Colors.grey),
                     ),
-                  )
-                else
+                  // Overlay gradient pour titre
                   Container(
-                    height: 300,
-                    color: Colors.grey.shade300,
-                    child: Center(
-                      child: Icon(
-                        Icons.image_not_supported,
-                        size: 64,
-                        color: Colors.grey.shade500,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          Colors.transparent,
+                          Colors.black.withOpacity(0.7),
+                        ],
                       ),
                     ),
                   ),
-                if (widget.property.imageUrls.length > 1)
-                  Positioned(
-                    bottom: 12,
-                    left: 0,
-                    right: 0,
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: List.generate(
-                        widget.property.imageUrls.length,
-                        (index) => Container(
-                          width: 8,
-                          height: 8,
-                          margin: const EdgeInsets.symmetric(horizontal: 4),
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: _currentImageIndex == index
-                                ? Colors.white
-                                : Colors.white70,
+                  // Dots pour carousel
+                  if (widget.property.imageUrls.length > 1)
+                    Positioned(
+                      bottom: 16,
+                      left: 0,
+                      right: 0,
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: List.generate(
+                          widget.property.imageUrls.length,
+                          (index) => AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            margin: const EdgeInsets.symmetric(horizontal: 4),
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: _currentImageIndex == index
+                                  ? Theme.of(context).colorScheme.primary
+                                  : Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                            ),
                           ),
                         ),
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
+              title: Text(
+                widget.property.title,
+                style: const TextStyle(fontWeight: FontWeight.bold),
+              ),
+              titlePadding: const EdgeInsets.only(left: 16, bottom: 16),
             ),
-
-            // Main Info
-            Padding(
+            actions: [
+              IconButton(
+                icon: Icon(
+                  _isFavorite ? Icons.favorite : Icons.favorite_border,
+                  color:
+                      _isFavorite ? Theme.of(context).colorScheme.error : null,
+                ),
+                onPressed: _toggleFavorite,
+              ),
+              IconButton(
+                icon: Icon(Icons.share, color: Colors.white),
+                onPressed: () {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Partager la propriété')),
+                  );
+                },
+              ),
+            ],
+          ),
+          // Contenu principal
+          SliverToBoxAdapter(
+            child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Title and Price
+                  // Prix
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: Text(
-                          widget.property.title,
-                          style: const TextStyle(
-                            fontSize: 22,
-                            fontWeight: FontWeight.bold,
-                          ),
+                      Text(
+                        '${widget.property.price.toStringAsFixed(0)} ${widget.property.currency}/mois',
+                        style:
+                            Theme.of(context).textTheme.headlineSmall?.copyWith(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                      ),
+                      Chip(
+                        label: Text(widget.property.type),
+                        backgroundColor:
+                            Theme.of(context).colorScheme.primaryContainer,
+                        labelStyle: TextStyle(
+                          color:
+                              Theme.of(context).colorScheme.onPrimaryContainer,
                         ),
                       ),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.end,
+                    ],
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Localisation
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Row(
                         children: [
-                          Text(
-                            widget.property.price.toStringAsFixed(0),
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blue.shade700,
-                            ),
+                          Icon(
+                            Icons.location_on,
+                            color: Theme.of(context).colorScheme.primary,
                           ),
-                          Text(
-                            '${widget.property.currency}/mois',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Colors.grey.shade600,
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  '${widget.property.address ?? ''}, ${widget.property.district ?? ''}',
+                                  style: Theme.of(context).textTheme.bodyMedium,
+                                ),
+                                Text(
+                                  '${widget.property.city}, ${widget.property.country}',
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodySmall
+                                      ?.copyWith(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onSurfaceVariant,
+                                      ),
+                                ),
+                              ],
                             ),
                           ),
                         ],
                       ),
-                    ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Caractéristiques (grid responsive)
+                  const Text(
+                    'Caractéristiques',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
-
-                  // Location
-                  Row(
+                  GridView.count(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    crossAxisCount: 2,
+                    crossAxisSpacing: 12,
+                    mainAxisSpacing: 12,
+                    childAspectRatio: 2,
                     children: [
-                      const Icon(Icons.location_on, color: Colors.blue),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${widget.property.address}, ${widget.property.district}',
-                        style: const TextStyle(fontSize: 14),
-                      ),
+                      _featureChip(
+                          Icons.bed, '${widget.property.bedrooms} chambres'),
+                      _featureChip(
+                          Icons.bathroom, '${widget.property.bathrooms} sdb'),
+                      _featureChip(Icons.square_foot,
+                          '${widget.property.surface ?? 0} m²'),
+                      if (widget.property.balconies != null)
+                        _featureChip(Icons.balcony,
+                            '${widget.property.balconies} balcon'),
                     ],
                   ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Icon(Icons.location_city, color: Colors.blue),
-                      const SizedBox(width: 8),
-                      Text(
-                        '${widget.property.city}, ${widget.property.country}',
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
 
-                  // Features
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: Colors.blue.shade50,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceAround,
-                      children: [
-                        _featureItem(
-                          Icons.bed,
-                          '${widget.property.bedrooms}',
-                          'Chambres',
-                        ),
-                        _featureItem(
-                          Icons.bathroom,
-                          '${widget.property.bathrooms}',
-                          'Salles de bain',
-                        ),
-                        _featureItem(
-                          Icons.home,
-                          widget.property.type,
-                          'Type',
-                        ),
-                        if (widget.property.surface != null)
-                          _featureItem(
-                            Icons.square_foot,
-                            '${widget.property.surface}m²',
-                            'Surface',
-                          ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  // Rating
+                  // Note
                   if (widget.property.reviewCount > 0)
-                    Row(
-                      children: [
-                        const Icon(Icons.star, color: Colors.orange),
-                        const SizedBox(width: 8),
-                        Text(
-                          '${widget.property.rating.toStringAsFixed(1)} (${widget.property.reviewCount} avis)',
-                          style: const TextStyle(fontSize: 14),
+                    Card(
+                      child: Padding(
+                        padding: const EdgeInsets.all(16),
+                        child: Row(
+                          children: [
+                            Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: List.generate(
+                                  5,
+                                  (index) => Icon(
+                                        index < widget.property.rating.floor()
+                                            ? Icons.star
+                                            : Icons.star_border,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .tertiary,
+                                        size: 20,
+                                      )),
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '${widget.property.rating.toStringAsFixed(1)} (${widget.property.reviewCount} avis)',
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ],
                         ),
-                      ],
+                      ),
                     ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
 
                   // Description
                   const Text(
                     'Description',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 8),
-                  Text(
-                    widget.property.description,
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Colors.grey.shade700,
-                      height: 1.5,
+                  Card(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16),
+                      child: Text(
+                        widget.property.description ??
+                            'Pas de description disponible.',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              height: 1.5,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 16),
 
                   // Conditions
                   if ((widget.property.conditions as Map?)?.isNotEmpty ?? false)
@@ -303,26 +345,32 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                         const Text(
                           'Conditions',
                           style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
+                              fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 8),
-                        Text(
-                          (widget.property.conditions as Map?)?['description']
-                                  as String? ??
-                              'Pas de conditions spécifiées',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.grey.shade700,
-                            height: 1.5,
+                        Card(
+                          child: Padding(
+                            padding: const EdgeInsets.all(16),
+                            child: Text(
+                              (widget.property.conditions
+                                      as Map?)?['description'] as String? ??
+                                  'Pas de conditions spécifiées',
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodyMedium
+                                  ?.copyWith(
+                                    height: 1.5,
+                                    color:
+                                        Theme.of(context).colorScheme.onSurface,
+                                  ),
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 16),
                       ],
                     ),
 
-                  // Amenities
+                  // Équipements
                   if (widget.property.amenities.isNotEmpty)
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -330,74 +378,80 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
                         const Text(
                           'Équipements',
                           style: TextStyle(
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
-                          ),
+                              fontSize: 18, fontWeight: FontWeight.bold),
                         ),
                         const SizedBox(height: 8),
                         Wrap(
                           spacing: 8,
                           runSpacing: 8,
                           children: widget.property.amenities
-                              .map(
-                                (amenity) => Chip(
-                                  label: Text(amenity),
-                                  backgroundColor: Colors.blue.shade50,
-                                ),
-                              )
+                              .map((amenity) => Chip(
+                                    label: Text(amenity),
+                                    backgroundColor: Theme.of(context)
+                                        .colorScheme
+                                        .primaryContainer,
+                                    labelStyle: TextStyle(
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onPrimaryContainer,
+                                      fontSize: 12,
+                                    ),
+                                  ))
                               .toList(),
                         ),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 32),
                       ],
                     ),
                 ],
               ),
             ),
-          ],
-        ),
+          ),
+        ],
       ),
-      bottomNavigationBar: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: _contactHost,
-                icon: const Icon(Icons.phone),
-                label: const Text('Contacter'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: ElevatedButton.icon(
-                onPressed: authProvider.isAuthenticated ? _makeBooking : null,
-                icon: const Icon(Icons.calendar_today),
-                label: const Text('Réserver'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.blue.shade700,
+      bottomNavigationBar: SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _contactHost,
+                  icon: const Icon(Icons.chat),
+                  label: const Text('Contacter l\'hôte'),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
                 ),
               ),
-            ),
-          ],
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: authProvider.isAuthenticated ? _makeBooking : null,
+                  icon: const Icon(Icons.calendar_today),
+                  label: const Text('Réserver'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.primary,
+                    foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
-  Widget _featureItem(IconData icon, String value, String label) {
-    return Column(
-      children: [
-        Icon(icon, color: Colors.blue.shade700, size: 24),
-        const SizedBox(height: 4),
-        Text(
-          value,
-          style: const TextStyle(fontWeight: FontWeight.bold),
-        ),
-        Text(
-          label,
-          style: const TextStyle(fontSize: 12),
-        ),
-      ],
+  Widget _featureChip(IconData icon, String label) {
+    return Chip(
+      avatar: Icon(icon,
+          size: 16, color: Theme.of(context).colorScheme.onPrimaryContainer),
+      label: Text(
+        label,
+        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
+      ),
+      backgroundColor: Theme.of(context).colorScheme.primaryContainer,
     );
   }
 }
@@ -428,12 +482,26 @@ class _BookingPageState extends State<BookingPage> {
       initialDate: DateTime.now(),
       firstDate: DateTime.now(),
       lastDate: DateTime.now().add(const Duration(days: 365)),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: Theme.of(context).colorScheme.copyWith(
+                  primary: Theme.of(context).colorScheme.primary,
+                  onPrimary: Theme.of(context).colorScheme.onPrimary,
+                ),
+          ),
+          child: child!,
+        );
+      },
     );
 
     if (picked != null) {
       setState(() {
         if (isCheckIn) {
           _checkInDate = picked;
+          if (_checkOutDate != null && _checkOutDate!.isBefore(picked)) {
+            _checkOutDate = null; // Reset out date if invalid
+          }
         } else {
           _checkOutDate = picked;
         }
@@ -443,20 +511,22 @@ class _BookingPageState extends State<BookingPage> {
 
   void _confirmBooking() async {
     if (_checkInDate == null || _checkOutDate == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Veuillez sélectionner les dates'),
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Veuillez sélectionner les dates')),
+        );
+      }
       return;
     }
 
     if (_checkOutDate!.isBefore(_checkInDate!)) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('La date de départ doit être après la date d\'arrivée'),
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+              content:
+                  Text('La date de départ doit être après la date d\'arrivée')),
+        );
+      }
       return;
     }
 
@@ -477,9 +547,7 @@ class _BookingPageState extends State<BookingPage> {
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Réservation confirmée!'),
-          ),
+          const SnackBar(content: Text('Réservation confirmée!')),
         );
         Navigator.pop(context);
       }
@@ -507,100 +575,72 @@ class _BookingPageState extends State<BookingPage> {
       appBar: AppBar(
         title: const Text('Réserver'),
         centerTitle: true,
-        backgroundColor: Colors.blue.shade700,
+        backgroundColor: Theme.of(context).colorScheme.primary,
+        foregroundColor: Theme.of(context).colorScheme.onPrimary,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Property Summary
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                border: Border.all(color: Colors.grey.shade300),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  if (widget.property.imageUrls.isNotEmpty)
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
-                      child: Image.network(
-                        widget.property.imageUrls.first,
-                        width: 80,
-                        height: 80,
-                        fit: BoxFit.cover,
-                      ),
-                    )
-                  else
-                    Container(
-                      width: 80,
-                      height: 80,
-                      color: Colors.grey.shade300,
-                      child: Icon(
-                        Icons.image_not_supported,
-                        color: Colors.grey.shade500,
-                      ),
-                    ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          widget.property.title,
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                          ),
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${widget.property.price.toStringAsFixed(0)} ${widget.property.currency}/mois',
-                          style: TextStyle(
-                            fontSize: 14,
-                            color: Colors.blue.shade700,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 32),
-
-            // Check-in Date
-            const Text(
-              'Date d\'arrivée',
-              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 12),
-            GestureDetector(
-              onTap: () => _selectDate(context, true),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(8),
-                ),
+            // Property Summary Card
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
                 child: Row(
                   children: [
-                    const Icon(Icons.calendar_today, color: Colors.blue),
-                    const SizedBox(width: 12),
-                    Text(
-                      _checkInDate != null
-                          ? '${_checkInDate!.day}/${_checkInDate!.month}/${_checkInDate!.year}'
-                          : 'Sélectionner une date',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: _checkInDate != null
-                            ? Colors.black
-                            : Colors.grey.shade500,
+                    Hero(
+                      tag: 'property-summary-${widget.property.id}',
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: Image.network(
+                          widget.property.imageUrls.isNotEmpty
+                              ? widget.property.imageUrls.first
+                              : '',
+                          width: 80,
+                          height: 80,
+                          fit: BoxFit.cover,
+                          errorBuilder: (context, error, stackTrace) =>
+                              Container(
+                            width: 80,
+                            height: 80,
+                            color: Theme.of(context)
+                                .colorScheme
+                                .surfaceContainerHighest,
+                            child: const Icon(Icons.image_not_supported,
+                                color: Colors.grey),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            widget.property.title,
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleMedium
+                                ?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            '${widget.property.price.toStringAsFixed(0)} ${widget.property.currency}/mois',
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleSmall
+                                ?.copyWith(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                          ),
+                        ],
                       ),
                     ),
                   ],
@@ -609,105 +649,165 @@ class _BookingPageState extends State<BookingPage> {
             ),
             const SizedBox(height: 24),
 
-            // Check-out Date
+            // Date d'arrivée
+            const Text(
+              'Date d\'arrivée',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Card(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => _selectDate(context, true),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.calendar_today,
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        _checkInDate != null
+                            ? '${_checkInDate!.day}/${_checkInDate!.month}/${_checkInDate!.year}'
+                            : 'Sélectionner une date',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: _checkInDate != null
+                                  ? Theme.of(context).colorScheme.onSurface
+                                  : Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // Date de départ
             const Text(
               'Date de départ',
               style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 12),
-            GestureDetector(
-              onTap: () => _selectDate(context, false),
-              child: Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Row(
-                  children: [
-                    const Icon(Icons.calendar_today, color: Colors.blue),
-                    const SizedBox(width: 12),
-                    Text(
-                      _checkOutDate != null
-                          ? '${_checkOutDate!.day}/${_checkOutDate!.month}/${_checkOutDate!.year}'
-                          : 'Sélectionner une date',
-                      style: TextStyle(
-                        fontSize: 14,
-                        color: _checkOutDate != null
-                            ? Colors.black
-                            : Colors.grey.shade500,
+            const SizedBox(height: 8),
+            Card(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(12),
+                onTap: () => _selectDate(context, false),
+                child: Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Row(
+                    children: [
+                      Icon(
+                        Icons.calendar_today,
+                        color: Theme.of(context).colorScheme.primary,
                       ),
+                      const SizedBox(width: 12),
+                      Text(
+                        _checkOutDate != null
+                            ? '${_checkOutDate!.day}/${_checkOutDate!.month}/${_checkOutDate!.year}'
+                            : 'Sélectionner une date',
+                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                              color: _checkOutDate != null
+                                  ? Theme.of(context).colorScheme.onSurface
+                                  : Theme.of(context)
+                                      .colorScheme
+                                      .onSurfaceVariant,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Résumé prix
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Nombre de nuits',
+                          style: Theme.of(context).textTheme.bodyMedium,
+                        ),
+                        Text(
+                          '$nights',
+                          style:
+                              Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                        ),
+                      ],
+                    ),
+                    const Divider(),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Text(
+                          'Prix total',
+                          style:
+                              Theme.of(context).textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                        ),
+                        Text(
+                          '${totalPrice.toStringAsFixed(0)} ${widget.property.currency}',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleMedium
+                              ?.copyWith(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.bold,
+                              ),
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
 
-            // Price Summary
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.blue.shade50,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text('Nombre de nuits:'),
-                      Text(
-                        '$nights',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                    ],
-                  ),
-                  const Divider(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Prix total:',
-                        style: TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.bold),
-                      ),
-                      Text(
-                        '${totalPrice.toStringAsFixed(0)} ${widget.property.currency}',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue.shade700,
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 32),
-
-            // Confirm Button
+            // Bouton confirmer
             SizedBox(
               width: double.infinity,
-              child: ElevatedButton(
+              child: ElevatedButton.icon(
                 onPressed: _isLoading ? null : _confirmBooking,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green.shade700,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
+                icon: _isLoading
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white),
+                      )
+                    : const Icon(Icons.check),
+                label: Text(
+                  _isLoading ? 'Confirmation...' : 'Confirmer la réservation',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-                child: _isLoading
-                    ? const CircularProgressIndicator(color: Colors.white)
-                    : const Text(
-                        'Confirmer la réservation',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                  padding: const EdgeInsets.symmetric(vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
               ),
             ),
+            const SizedBox(height: 16),
           ],
         ),
       ),

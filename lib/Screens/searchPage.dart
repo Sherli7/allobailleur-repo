@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import 'package:rent_house/Models/property.dart';
 import 'package:rent_house/Providers/property_provider.dart';
 import 'package:rent_house/Screens/conversationPage.dart';
+import 'package:rent_house/Screens/propertyDetailsPage.dart';
 
 class SearchPage extends StatefulWidget {
   static const String routeName = '/search';
@@ -160,79 +161,89 @@ class _SearchPageState extends State<SearchPage> {
     print(
         'Property ${property.id}: imageUrls = ${property.imageUrls}, first imageUrl = $imageUrl');
 
-    return Card(
-      margin: const EdgeInsets.all(8),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Stack(
-            children: [
-              ClipRRect(
-                borderRadius:
-                    const BorderRadius.vertical(top: Radius.circular(8)),
-                child: imageUrl != null
-                    ? Image.network(
-                        imageUrl,
-                        height: 200,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        errorBuilder: (context, error, stackTrace) => Container(
+    return GestureDetector(
+      onTap: () => Navigator.of(context).pushNamed(
+        PropertyDetailsPage.routeName,
+        arguments: property,
+      ),
+      child: Card(
+        margin: const EdgeInsets.all(8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Stack(
+              children: [
+                ClipRRect(
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(8)),
+                  child: imageUrl != null
+                      ? Hero(
+                          tag: 'property-image-${property.id}',
+                          child: Image.network(
+                            imageUrl,
+                            height: 200,
+                            width: double.infinity,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) =>
+                                Container(
+                              height: 200,
+                              color: Colors.grey[300],
+                              child: const Icon(Icons.image_not_supported),
+                            ),
+                          ),
+                        )
+                      : Container(
                           height: 200,
                           color: Colors.grey[300],
                           child: const Icon(Icons.image_not_supported),
                         ),
-                      )
-                    : Container(
-                        height: 200,
-                        color: Colors.grey[300],
-                        child: const Icon(Icons.image_not_supported),
-                      ),
-              ),
-              if (property.isNew)
-                const Positioned(
-                  top: 8,
-                  left: 8,
-                  child: Chip(
-                      label: Text('Nouveau',
-                          style: TextStyle(color: Colors.white)),
-                      backgroundColor: Colors.green),
                 ),
-            ],
-          ),
-          Padding(
-            padding: const EdgeInsets.all(12),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(property.title,
-                    style: Theme.of(context).textTheme.titleMedium),
-                Text(
-                    '${property.city}, ${property.distance ?? 0} km du centre'),
-                Text('${property.rooms} pièces • ${property.surface} m²'),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text('${property.price} €/mois',
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleLarge
-                            ?.copyWith(fontWeight: FontWeight.bold)),
-                    Row(
-                      children: [
-                        IconButton(
-                            icon: const Icon(Icons.favorite_border),
-                            onPressed: () => _toggleFavorite(property)),
-                        IconButton(
-                            icon: const Icon(Icons.chat_bubble_outline),
-                            onPressed: () => _contactOwner(property)),
-                      ],
-                    ),
-                  ],
-                ),
+                if (property.isNew)
+                  const Positioned(
+                    top: 8,
+                    left: 8,
+                    child: Chip(
+                        label: Text('Nouveau',
+                            style: TextStyle(color: Colors.white)),
+                        backgroundColor: Colors.green),
+                  ),
               ],
             ),
-          ),
-        ],
+            Padding(
+              padding: const EdgeInsets.all(12),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(property.title,
+                      style: Theme.of(context).textTheme.titleMedium),
+                  Text(
+                      '${property.city}, ${property.distance ?? 0} km du centre'),
+                  Text('${property.rooms} pièces • ${property.surface} m²'),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text('${property.price} €/mois',
+                          style: Theme.of(context)
+                              .textTheme
+                              .titleLarge
+                              ?.copyWith(fontWeight: FontWeight.bold)),
+                      Row(
+                        children: [
+                          IconButton(
+                              icon: const Icon(Icons.favorite_border),
+                              onPressed: () => _toggleFavorite(property)),
+                          IconButton(
+                              icon: const Icon(Icons.chat_bubble_outline),
+                              onPressed: () => _contactOwner(property)),
+                        ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

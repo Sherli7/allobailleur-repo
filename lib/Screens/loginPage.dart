@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_auth/firebase_auth.dart'
-    as firebase_auth; // Alias pour éviter conflit
 import 'package:rent_house/Screens/guestHomePage.dart'; // Assure-toi du chemin correct
 import 'package:rent_house/Providers/auth_provider.dart'
     as app_auth; // Alias pour ton custom AuthProvider
@@ -17,7 +15,7 @@ class LoginPage extends StatefulWidget {
 class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
-  bool _isLoading = false;
+  // loading is read from AuthProvider now
   bool _obscurePassword = true;
   late AnimationController _controller;
   late Animation<double> _fadeAnimation;
@@ -54,22 +52,17 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       return;
     }
 
-    setState(() => _isLoading = true);
-    final authProvider = Provider.of<app_auth.AuthProvider>(context,
-        listen: false); // Utilise l'alias
+    final authProvider =
+        Provider.of<app_auth.AuthProvider>(context, listen: false);
     try {
       await authProvider.login(
-        // Appelle la méthode de ton custom provider
-        email: _emailController.text,
+        email: _emailController.text.trim(),
         password: _passwordController.text,
       );
-      if (mounted) {
-        Navigator.pushReplacementNamed(context, GuestHomePage.routeName);
-      }
+      if (!mounted) return;
+      Navigator.pushReplacementNamed(context, GuestHomePage.routeName);
     } catch (e) {
-      _showSnackBar(e.toString()); // Gestion d'erreur générique
-    } finally {
-      if (mounted) setState(() => _isLoading = false);
+      _showSnackBar(e.toString());
     }
   }
 
@@ -86,99 +79,62 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Color(0xFF2196F3), // Bleu ciel
-              Color(0xFF1976D2), // Bleu profond
-              Color(0xFF0D47A1), // Bleu nuit
-            ],
-            stops: [0.0, 0.5, 1.0],
-          ),
-        ),
-        child: SafeArea(
-          child: FadeTransition(
-            opacity: _fadeAnimation,
-            child: SlideTransition(
-              position: _slideAnimation,
-              child: Padding(
-                padding: const EdgeInsets.all(24.0),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    // Logo / Icône
-                    Hero(
-                      tag: 'logo',
-                      child: Container(
-                        width: 80,
-                        height: 80,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.white.withOpacity(0.2),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.1),
-                              blurRadius: 20,
-                              offset: const Offset(0, 10),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.home,
-                          size: 50,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 32),
-
-                    // Titre
-                    Text(
-                      'Bienvenue sur AlloBailleur',
-                      style: theme.textTheme.headlineMedium?.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        shadows: [
-                          Shadow(
-                            offset: const Offset(1, 1),
-                            blurRadius: 4,
-                            color: Colors.black26,
-                          ),
-                        ],
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Connectez-vous pour trouver votre logement idéal',
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        color: Colors.white.withOpacity(0.8),
-                        shadows: [
-                          Shadow(
-                            offset: const Offset(1, 1),
-                            blurRadius: 2,
-                            color: Colors.black26,
-                          ),
-                        ],
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
-                    const SizedBox(height: 48),
-
-                    // Formulaire
-                    Card(
-                      elevation: 8,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Padding(
-                        padding: const EdgeInsets.all(24.0),
-                        child: Column(
+      body: SafeArea(
+        child: FadeTransition(
+          opacity: _fadeAnimation,
+          child: SlideTransition(
+            position: _slideAnimation,
+            child: Center(
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 520),
+                child: Card(
+                  elevation: 12,
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16)),
+                  margin:
+                      const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+                  child: Padding(
+                    padding: const EdgeInsets.all(24.0),
+                    child: Consumer<app_auth.AuthProvider>(
+                      builder: (context, authProvider, _) {
+                        final isLoading = authProvider.isLoading;
+                        final error = authProvider.errorMessage;
+                        return Column(
+                          mainAxisSize: MainAxisSize.min,
                           children: [
-                            // Email
+                            Row(
+                              children: [
+                                const Icon(Icons.home,
+                                    size: 36, color: Colors.blue),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Text(
+                                    'AllôBailleur',
+                                    style: theme.textTheme.headlineSmall
+                                        ?.copyWith(fontWeight: FontWeight.bold),
+                                  ),
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Connectez-vous pour continuer',
+                              style: theme.textTheme.bodyMedium,
+                            ),
+                            if (error != null) ...[
+                              const SizedBox(height: 12),
+                              Row(
+                                children: [
+                                  const Icon(Icons.error, color: Colors.red),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                      child: Text(error,
+                                          style: const TextStyle(
+                                              color: Colors.red))),
+                                ],
+                              ),
+                            ],
+                            const SizedBox(height: 16),
                             TextFormField(
                               controller: _emailController,
                               keyboardType: TextInputType.emailAddress,
@@ -186,17 +142,10 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                 labelText: 'Email',
                                 prefixIcon: const Icon(Icons.email_outlined),
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                filled: true,
-                                fillColor: theme.colorScheme.surfaceVariant
-                                    .withOpacity(0.1),
+                                    borderRadius: BorderRadius.circular(12)),
                               ),
-                              style: theme.textTheme.bodyMedium,
                             ),
-                            const SizedBox(height: 16),
-
-                            // Mot de passe
+                            const SizedBox(height: 12),
                             TextFormField(
                               controller: _passwordController,
                               obscureText: _obscurePassword,
@@ -204,109 +153,82 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                 labelText: 'Mot de passe',
                                 prefixIcon: const Icon(Icons.lock_outline),
                                 suffixIcon: IconButton(
-                                  icon: Icon(
-                                    _obscurePassword
-                                        ? Icons.visibility_off
-                                        : Icons.visibility,
-                                  ),
+                                  icon: Icon(_obscurePassword
+                                      ? Icons.visibility_off
+                                      : Icons.visibility),
                                   onPressed: () => setState(() =>
                                       _obscurePassword = !_obscurePassword),
                                 ),
                                 border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                                filled: true,
-                                fillColor: theme.colorScheme.surfaceVariant
-                                    .withOpacity(0.1),
-                              ),
-                              style: theme.textTheme.bodyMedium,
-                            ),
-                            const SizedBox(height: 8),
-                            Align(
-                              alignment: Alignment.centerRight,
-                              child: TextButton(
-                                onPressed: () {
-                                  // Nav to forgot password
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    const SnackBar(
-                                        content: Text('Mot de passe oublié ?')),
-                                  );
-                                },
-                                child: Text(
-                                  'Mot de passe oublié ?',
-                                  style: theme.textTheme.bodySmall?.copyWith(
-                                    color: theme.colorScheme.primary,
-                                  ),
-                                ),
+                                    borderRadius: BorderRadius.circular(12)),
                               ),
                             ),
-                            const SizedBox(height: 24),
-
-                            // Bouton Login
+                            const SizedBox(height: 16),
                             SizedBox(
                               width: double.infinity,
                               child: ElevatedButton(
-                                onPressed: _isLoading ? null : _login,
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: theme.colorScheme.primary,
-                                  foregroundColor: theme.colorScheme.onPrimary,
-                                  padding:
-                                      const EdgeInsets.symmetric(vertical: 16),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  elevation: 2,
-                                ),
-                                child: _isLoading
+                                onPressed: isLoading ? null : _login,
+                                child: isLoading
                                     ? const SizedBox(
                                         width: 20,
                                         height: 20,
                                         child: CircularProgressIndicator(
-                                          strokeWidth: 2,
-                                          color: Colors.white,
-                                        ),
-                                      )
-                                    : const Text(
-                                        'Se connecter',
-                                        style: TextStyle(
-                                          fontSize: 16,
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                      ),
+                                            strokeWidth: 2,
+                                            color: Colors.white))
+                                    : const Text('Se connecter'),
                               ),
                             ),
-                            const SizedBox(height: 16),
-
-                            // Inscription
+                            const SizedBox(height: 12),
+                            Row(children: const [
+                              Expanded(child: Divider()),
+                              Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 8),
+                                  child: Text('ou')),
+                              Expanded(child: Divider())
+                            ]),
+                            const SizedBox(height: 12),
+                            SizedBox(
+                              width: double.infinity,
+                              child: OutlinedButton.icon(
+                                icon: Image.asset(
+                                    'assets/images/google_logo.png',
+                                    width: 20,
+                                    height: 20),
+                                label: const Text('Continuer avec Google'),
+                                onPressed: isLoading
+                                    ? null
+                                    : () async {
+                                        final navigator = Navigator.of(context);
+                                        final auth =
+                                            Provider.of<app_auth.AuthProvider>(
+                                                context,
+                                                listen: false);
+                                        final ok =
+                                            await auth.signInWithGoogle();
+                                        if (!mounted) return;
+                                        if (ok) {
+                                          navigator.pushReplacementNamed(
+                                              GuestHomePage.routeName);
+                                        }
+                                      },
+                              ),
+                            ),
+                            const SizedBox(height: 12),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
-                                Text(
-                                  "Pas de compte ? ",
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: Colors.grey.shade600,
-                                  ),
-                                ),
+                                const Text("Pas de compte ? "),
                                 TextButton(
-                                  onPressed: () {
-                                    // Nav to register
-                                    Navigator.pushNamed(context, '/register');
-                                  },
-                                  child: Text(
-                                    'S\'inscrire',
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: theme.colorScheme.primary,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
+                                    onPressed: () => Navigator.pushNamed(
+                                        context, '/register'),
+                                    child: const Text('S\'inscrire')),
                               ],
                             ),
                           ],
-                        ),
-                      ),
+                        );
+                      },
                     ),
-                  ],
+                  ),
                 ),
               ),
             ),

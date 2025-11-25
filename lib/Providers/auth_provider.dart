@@ -117,6 +117,31 @@ class AuthProvider extends ChangeNotifier {
     return false;
   }
 
+  /// Sign in with Google wrapper
+  Future<bool> signInWithGoogle() async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      final res = await _authService.signInWithGoogle();
+      _isLoading = false;
+      if (res['success'] == true) {
+        final fb = _authService.currentUser;
+        if (fb != null) _user = await _authService.getUserData(fb.uid);
+        notifyListeners();
+        return true;
+      }
+      _errorMessage = res['message'] as String? ?? 'Erreur Google Sign-In';
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
+
   /// Backwards-compatible alias used in some screens
   Future<bool> becomeHost() => promoteToOwner();
 }

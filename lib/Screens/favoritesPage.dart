@@ -189,11 +189,12 @@ class _FavoritesPageState extends State<FavoritesPage> {
                         IconButton(
                           icon: const Icon(Icons.favorite, color: Colors.red),
                           onPressed: () async {
+                            final messenger = ScaffoldMessenger.of(context);
                             final success =
                                 await provider.toggleFavorite(property);
                             if (!mounted) return;
                             if (!success) {
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              messenger.showSnackBar(
                                 const SnackBar(
                                     content: Text(
                                         'Erreur lors de la suppression du favori')),

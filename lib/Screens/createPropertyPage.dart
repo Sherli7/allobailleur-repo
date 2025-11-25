@@ -206,6 +206,7 @@ class _CreatePropertyPageState extends State<CreatePropertyPage> {
     final messenger = ScaffoldMessenger.of(context);
     final navigator = Navigator.of(context);
     final rootNavigator = Navigator.of(context, rootNavigator: true);
+    final dialogContext = context; // capture context before any awaits
     bool progressDialogShown = false;
 
     try {
@@ -282,16 +283,13 @@ class _CreatePropertyPageState extends State<CreatePropertyPage> {
           debugPrint('First image path: ${firstImage.path}');
           debugPrint('First image name: ${firstImage.name}');
           debugPrint('First image mimeType: ${firstImage.mimeType}');
-          try {
-            final size = await firstImage.length();
-            debugPrint('First image size: $size bytes');
-          } catch (e) {
-            debugPrint('Error getting image size: $e');
-          }
+          // Skipping synchronous file size check (debug) to avoid async gaps
         }
 
+        if (!mounted) return;
+
         showDialog(
-          context: context,
+          context: dialogContext,
           barrierDismissible: false,
           builder: (context) => Consumer<PropertyProvider>(
             builder: (context, provider, child) {

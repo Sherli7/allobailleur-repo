@@ -6,7 +6,6 @@ import 'package:rent_house/Services/AuthService.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 
-import 'package:rent_house/Models/AppConstants.dart';
 import 'package:rent_house/Models/property.dart';
 import 'package:rent_house/Screens/BookPostingPage.dart';
 import 'package:rent_house/Screens/guestHomePage.dart';

@@ -118,21 +118,23 @@ class _MyListingsPageState extends State<MyListingsPage> {
             ),
             TextButton(
               onPressed: () async {
+                final messenger = ScaffoldMessenger.of(context);
+                final nav = Navigator.of(context);
+                final propertyProvider =
+                    Provider.of<PropertyProvider>(context, listen: false);
                 final success = await authProvider.promoteToOwner();
                 if (!mounted) return;
-                Navigator.pop(context);
+                nav.pop();
                 if (success) {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  messenger.showSnackBar(
                     const SnackBar(
                         content: Text('Vous êtes maintenant propriétaire !')),
                   );
                   // Refresh properties
-                  final propertyProvider =
-                      Provider.of<PropertyProvider>(context, listen: false);
                   propertyProvider
                       .loadHostProperties(authProvider.firebaseUser?.uid ?? '');
                 } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
+                  messenger.showSnackBar(
                     const SnackBar(
                         content:
                             Text('Impossible de promouvoir pour le moment.')),

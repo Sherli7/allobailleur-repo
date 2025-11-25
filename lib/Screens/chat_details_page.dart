@@ -306,9 +306,9 @@ class _ChatDetailsPageState extends State<ChatDetailsPage> {
       if (returnCode != null && returnCode.isValueSuccess()) {
         fileToUpload = File(
             '${originalFile.parent.path}/compressed_${DateTime.now().millisecondsSinceEpoch}.mp4');
-        print('Vidéo compressée avec succès');
+        debugPrint('Vidéo compressée avec succès');
       } else {
-        print('Compression vidéo échouée, upload original');
+        debugPrint('Compression vidéo échouée, upload original');
       }
     } else {
       // Compression image (comme avant)

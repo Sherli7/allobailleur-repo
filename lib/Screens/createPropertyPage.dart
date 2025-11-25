@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:rent_house/Models/property.dart';
 import 'package:rent_house/Providers/auth_provider.dart' as app_auth;
 import 'package:rent_house/Providers/property_provider.dart';
+import 'package:rent_house/Widgets/map_picker.dart';
 
 class CreatePropertyPage extends StatefulWidget {
   static const String routeName = '/createPropertyPageRoute';
@@ -75,6 +76,7 @@ class _CreatePropertyPageState extends State<CreatePropertyPage> {
   // Step 3: Localisation (optional lat/lng for now; integrate map later)
   late final TextEditingController _addressController;
   late final TextEditingController _districtController;
+  late final TextEditingController _cityController;
   late final TextEditingController _latitudeController;
   late final TextEditingController _longitudeController;
 
@@ -100,6 +102,11 @@ class _CreatePropertyPageState extends State<CreatePropertyPage> {
     _depositController = TextEditingController();
     _addressController = TextEditingController();
     _districtController = TextEditingController();
+    _cityController = TextEditingController(
+        text: Provider.of<app_auth.AuthProvider>(context, listen: false)
+                .user
+                ?.city ??
+            '');
     _latitudeController = TextEditingController();
     _longitudeController = TextEditingController();
     _conditionsController = TextEditingController();
@@ -136,6 +143,7 @@ class _CreatePropertyPageState extends State<CreatePropertyPage> {
     _depositController.dispose();
     _addressController.dispose();
     _districtController.dispose();
+    _cityController.dispose();
     _latitudeController.dispose();
     _longitudeController.dispose();
     _conditionsController.dispose();
@@ -143,6 +151,7 @@ class _CreatePropertyPageState extends State<CreatePropertyPage> {
   }
 
   Future<void> _pickImages() async {
+    final messenger = ScaffoldMessenger.of(context);
     try {
       final List<XFile> images =
           await _imagePicker.pickMultiImage(imageQuality: 85);
@@ -152,18 +161,18 @@ class _CreatePropertyPageState extends State<CreatePropertyPage> {
       if (images.isNotEmpty) {
         if (_selectedImages.length + images.length <= 10) {
           setState(() => _selectedImages.addAll(images));
-          ScaffoldMessenger.of(context).showSnackBar(
+          messenger.showSnackBar(
             SnackBar(content: Text('Ajouté ${images.length} photo(s)')),
           );
         } else {
-          ScaffoldMessenger.of(context).showSnackBar(
+          messenger.showSnackBar(
             const SnackBar(content: Text('Limite de 10 photos atteinte')),
           );
         }
       }
     } catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           SnackBar(content: Text('Erreur lors de la sélection: $e')),
         );
       }
@@ -194,6 +203,11 @@ class _CreatePropertyPageState extends State<CreatePropertyPage> {
 
     setState(() => _isLoading = true);
 
+    final messenger = ScaffoldMessenger.of(context);
+    final navigator = Navigator.of(context);
+    final rootNavigator = Navigator.of(context, rootNavigator: true);
+    bool progressDialogShown = false;
+
     try {
       // Parse values safely
       final bedrooms = int.parse(_bedroomsController.text);
@@ -212,7 +226,9 @@ class _CreatePropertyPageState extends State<CreatePropertyPage> {
         title: _titleController.text.trim(),
         description: _descriptionController.text.trim(),
         type: _propertyType,
-        city: authProvider.user?.city ?? '',
+        city: _cityController.text.trim().isNotEmpty
+            ? _cityController.text.trim()
+            : (authProvider.user?.city ?? ''),
         country: authProvider.user?.country ?? '',
         price: price,
         surface: surface,
@@ -297,6 +313,7 @@ class _CreatePropertyPageState extends State<CreatePropertyPage> {
             },
           ),
         );
+        progressDialogShown = true;
       }
 
       final result = await propertyProvider.createProperty(property,
@@ -304,7 +321,7 @@ class _CreatePropertyPageState extends State<CreatePropertyPage> {
 
       if (result['success'] != true) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
+          messenger.showSnackBar(
             SnackBar(
                 content: Text(
                     'Erreur lors de la publication: ${result['message']}')),
@@ -314,20 +331,34 @@ class _CreatePropertyPageState extends State<CreatePropertyPage> {
         return;
       }
 
-      // Close progress dialog if it was shown
-      if (_selectedImages.isNotEmpty && Navigator.canPop(context)) {
-        Navigator.pop(context);
+      // Close progress dialog if it was shown (use captured rootNavigator)
+      if (progressDialogShown) {
+        try {
+          if (rootNavigator.canPop()) {
+            rootNavigator.pop();
+          }
+        } catch (_) {}
+        progressDialogShown = false;
       }
 
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           const SnackBar(content: Text('Annonce publiée avec succès !')),
         );
-        Navigator.pop(context);
+        navigator.pop();
       }
     } catch (e) {
+      // Ensure progress dialog is closed on error as well
+      if (progressDialogShown) {
+        try {
+          if (rootNavigator.canPop()) {
+            rootNavigator.pop();
+          }
+        } catch (_) {}
+        progressDialogShown = false;
+      }
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
+        messenger.showSnackBar(
           SnackBar(content: Text('Erreur lors de la publication: $e')),
         );
       }
@@ -339,18 +370,31 @@ class _CreatePropertyPageState extends State<CreatePropertyPage> {
   }
 
   Future<void> _pickLocation() async {
-    // TODO: Intègre google_maps_flutter pour un vrai picker
-    // Pour l'instant, mock avec Yaoundé
-    setState(() {
-      _latitudeController.text = '3.8667';
-      _longitudeController.text = '11.5167';
-    });
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text(
-                'Localisation par défaut (Yaoundé) - Intégrez une carte pour personnaliser')),
-      );
+    // Open embedded OpenStreetMap picker (flutter_map)
+    final initialLat = double.tryParse(_latitudeController.text) ?? 3.8667;
+    final initialLng = double.tryParse(_longitudeController.text) ?? 11.5167;
+    final messenger = ScaffoldMessenger.of(context);
+    final nav = Navigator.of(context);
+    final result = await nav.push<MapPickerResult>(
+      MaterialPageRoute(
+          builder: (_) => MapPickerPage(
+                initialLat: initialLat,
+                initialLng: initialLng,
+              )),
+    );
+    if (result != null && mounted) {
+      setState(() {
+        _latitudeController.text = result.lat.toString();
+        _longitudeController.text = result.lng.toString();
+        if (result.city != null && result.city!.isNotEmpty) {
+          _cityController.text = result.city!;
+        }
+      });
+      if (mounted) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Localisation sélectionnée')),
+        );
+      }
     }
   }
 
@@ -1181,6 +1225,18 @@ class _CreatePropertyPageState extends State<CreatePropertyPage> {
                 (value ?? '').isEmpty ? 'Le quartier est requis' : null,
           ),
           const SizedBox(height: 16),
+          TextFormField(
+            controller: _cityController,
+            decoration: InputDecoration(
+              labelText: 'Ville',
+              hintText: 'ex: Yaoundé',
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            validator: (value) =>
+                (value ?? '').isEmpty ? 'La ville est requise' : null,
+          ),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
@@ -1257,6 +1313,7 @@ class _CreatePropertyPageState extends State<CreatePropertyPage> {
                 _resumeItem('Type courant', _powerType),
                 _resumeItem('Fournisseur eau', _waterSupplier),
                 _resumeItem('Adresse', _addressController.text),
+                _resumeItem('Ville', _cityController.text),
                 _resumeItem('Quartier', _districtController.text),
                 _resumeItem('Photos', '${_selectedImages.length} photo(s)'),
                 if (_selectedAmenities.isNotEmpty)

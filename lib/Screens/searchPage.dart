@@ -222,7 +222,7 @@ class _SearchPageState extends State<SearchPage> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('${property.price} €/mois',
+                      Text('${property.price} FCFA/mois',
                           style: Theme.of(context)
                               .textTheme
                               .titleLarge

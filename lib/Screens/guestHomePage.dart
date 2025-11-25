@@ -188,11 +188,6 @@ class HomeContentPage extends StatelessWidget {
           }
 
           final properties = propertyProvider.properties ?? [];
-          final totalProperties = properties.length;
-          final avgPrice = properties.isNotEmpty
-              ? properties.map((p) => p.price).reduce((a, b) => a + b) /
-                  properties.length
-              : 0.0;
 
           return Container(
             color: Theme.of(context)
@@ -272,44 +267,8 @@ class HomeContentPage extends StatelessWidget {
 
                     const SizedBox(height: 24),
 
-                    // Statistiques dynamiques avec animations (couleurs MD3)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 500),
-                            curve: Curves.easeInOut,
-                            child: _buildStatCard(
-                              context: context,
-                              title: 'Logements',
-                              value: totalProperties.toString(),
-                              icon: Icons.home,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .primary, // Couleur primaire MD3
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 16),
-                        Expanded(
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 500),
-                            curve: Curves.easeInOut,
-                            child: _buildStatCard(
-                              context: context,
-                              title: 'Prix moyen',
-                              value: '${avgPrice.toStringAsFixed(0)}€',
-                              icon: Icons.euro,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .primary, // Cohérent avec primaire
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 24),
+                    // Statistiques supprimées par demande
+                    const SizedBox(height: 12),
 
                     // Section des propriétés populaires avec titre animé
                     Row(
@@ -398,42 +357,7 @@ class HomeContentPage extends StatelessWidget {
     );
   }
 
-  Widget _buildStatCard({
-    required BuildContext context,
-    required String title,
-    required String value,
-    required IconData icon,
-    required Color color,
-  }) {
-    return Card(
-      color: Theme.of(context)
-          .colorScheme
-          .surfaceContainerHighest, // Surface variant MD3 pour fond subtil
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            Icon(icon, color: color.withOpacity(0.7), size: 40),
-            const SizedBox(height: 12),
-            Text(
-              value,
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    color: color.withOpacity(0.8),
-                  ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              title,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
+  // Stat cards removed per product requirement.
 }
 
 // Nouveau StatefulWidget pour la carte avec slider d'images
@@ -644,8 +568,8 @@ class _PropertyCardState extends State<PropertyCard> {
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: List.generate(5, (starIndex) {
-                              final isFilled = starIndex <
-                                  (widget.property.rating ?? 0).floor();
+                              final isFilled =
+                                  starIndex < widget.property.rating.floor();
                               return Icon(
                                 isFilled ? Icons.star : Icons.star_border,
                                 color: Theme.of(context)
@@ -660,7 +584,7 @@ class _PropertyCardState extends State<PropertyCard> {
                       ),
                       const SizedBox(height: 4),
                       Text(
-                        '${widget.property.surface ?? 0} m² • ${widget.property.bedrooms ?? 0} ch',
+                        '${widget.property.surface ?? 0} m² • ${widget.property.bedrooms} ch',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                               color: Theme.of(context)
                                   .colorScheme

@@ -42,37 +42,36 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
         subtitle: Text('${p.city} • ${p.price.toStringAsFixed(0)}'),
         trailing: PopupMenuButton<String>(
           onSelected: (value) async {
+            final messenger = ScaffoldMessenger.of(context);
             if (value == 'mark_rented') {
               final ok = await provider.completeRental(p);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text(ok ? 'Annonce marquée louée' : "Échec")),
-              );
+              if (mounted)
+                messenger.showSnackBar(SnackBar(
+                    content: Text(ok ? 'Annonce marquée louée' : "Échec")));
             } else if (value == 'restore') {
               final ok = await provider.restoreProperty(p);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                    content: Text(ok ? 'Annonce remise en ligne' : "Échec")),
-              );
+              if (mounted)
+                messenger.showSnackBar(SnackBar(
+                    content: Text(ok ? 'Annonce remise en ligne' : "Échec")));
             } else if (value == 'delete') {
               final res = await provider.deleteProperty(p.id);
               if (res['success'] == true) {
-                // remove locally
-                provider.userProperties = (provider.userProperties ?? [])
-                    .where((x) => x.id != p.id)
-                    .toList();
-                provider.properties = (provider.properties ?? [])
-                    .where((x) => x.id != p.id)
-                    .toList();
-                provider.notifyListeners();
-                ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Annonce supprimée')));
+                // reload provider lists via its methods
+                final uid = FirebaseAuth.instance.currentUser?.uid;
+                if (uid != null) await provider.loadHostProperties(uid);
+                await provider.fetchProperties();
+                if (mounted)
+                  messenger.showSnackBar(
+                      const SnackBar(content: Text('Annonce supprimée')));
               } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Erreur: ${res['message'] ?? ''}')));
+                if (mounted)
+                  messenger.showSnackBar(SnackBar(
+                      content: Text('Erreur: ${res['message'] ?? ''}')));
               }
             } else if (value == 'edit') {
               // navigate to edit page if exists
-              Navigator.of(context).pushNamed('/editProperty', arguments: p);
+              if (mounted)
+                Navigator.of(context).pushNamed('/editProperty', arguments: p);
             }
           },
           itemBuilder: (context) => [

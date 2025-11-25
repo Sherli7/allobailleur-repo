@@ -50,7 +50,7 @@ CREATE TABLE public.properties (
     address TEXT,
     country TEXT NOT NULL,
     price NUMERIC NOT NULL,
-    currency TEXT NOT NULL DEFAULT 'EUR',
+    currency TEXT NOT NULL DEFAULT 'XAF',
     surface NUMERIC,
     bedrooms INTEGER,
     bathrooms INTEGER,

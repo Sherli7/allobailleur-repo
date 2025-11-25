@@ -1,10 +1,10 @@
-import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:rent_house/Providers/auth_provider.dart';
-import 'package:rent_house/Views/ListWidgets.dart';
+import 'package:rent_house/Providers/property_provider.dart';
+import 'package:rent_house/Models/property.dart';
 import 'package:rent_house/Views/TextWidgets.dart';
-import 'package:rent_house/Views/formWidgets.dart';
+import 'package:rent_house/Screens/ownerDashboard.dart';
 
 class ViewProfilePage extends StatefulWidget {
   static const String routeName = '/viewProfilePageRoute';
@@ -16,6 +16,22 @@ class ViewProfilePage extends StatefulWidget {
 }
 
 class _MyViewProfilePageState extends State<ViewProfilePage> {
+  bool _loadingProperties = true;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final user = authProvider.user;
+      if (user != null) {
+        await Provider.of<PropertyProvider>(context, listen: false)
+            .loadHostProperties(user.uid);
+      }
+      if (mounted) setState(() => _loadingProperties = false);
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
@@ -30,125 +46,166 @@ class _MyViewProfilePageState extends State<ViewProfilePage> {
     return Scaffold(
       appBar: AppBar(
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: AppBarText(key: UniqueKey(), text: 'View Profile'),
+        title: AppBarText(key: UniqueKey(), text: user.fullName),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.edit),
+            onPressed: () => Navigator.pushNamed(context, '/personalInfo'),
+            tooltip: 'Éditer le profil',
+          ),
+          IconButton(
+            icon: const Icon(Icons.dashboard),
+            onPressed: () =>
+                Navigator.pushNamed(context, OwnerDashboard.routeName),
+            tooltip: 'Tableau de bord',
+          ),
+        ],
       ),
-      body: Center(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(35, 50, 35, 35),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.start,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: <Widget>[
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  crossAxisAlignment: CrossAxisAlignment.center,
-                  children: <Widget>[
-                    SizedBox(
-                      width: MediaQuery.of(context).size.width * 3 / 5,
-                      child: AutoSizeText(
-                        'Hi, my name is ${user.fullName}',
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 30,
-                        ),
-                        maxLines: 2,
-                      ),
-                    ),
-                    CircleAvatar(
-                      backgroundColor: Colors.black,
-                      radius: MediaQuery.of(context).size.width / 9.5,
-                      child: CircleAvatar(
-                        radius: MediaQuery.of(context).size.width / 10,
-                        backgroundImage: user.profileImageUrl.isNotEmpty
-                            ? NetworkImage(user.profileImageUrl)
-                            : const AssetImage(
-                                    'assets/images/default_profile.jpg')
-                                as ImageProvider,
-                      ),
-                    ),
-                  ],
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 48,
+                  backgroundImage: user.profileImageUrl.isNotEmpty
+                      ? NetworkImage(user.profileImageUrl)
+                      : const AssetImage('assets/images/default_profile.jpg')
+                          as ImageProvider,
                 ),
-                const Padding(
-                  padding: EdgeInsets.only(top: 25.0),
-                  child: Text(
-                    'About me: ',
-                    style: TextStyle(
-                      fontSize: 30.0,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 20.0),
-                  child: AutoSizeText(
-                    user.bio ?? 'No bio available.',
-                    style: const TextStyle(
-                      fontSize: 20.0,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const Padding(
-                  padding: EdgeInsets.only(top: 50.0),
-                  child: Text(
-                    'Location',
-                    style: TextStyle(
-                      fontSize: 30.0,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(10, 20.0, 10, 0),
-                  child: Row(
-                    children: <Widget>[
-                      const Icon(Icons.home),
-                      Padding(
-                        padding: const EdgeInsets.only(left: 20.0),
-                        child: AutoSizeText(
-                          user.city != null && user.country != null
-                              ? 'Lives in ${user.city}, ${user.country}'
-                              : 'Location not specified',
-                          style: const TextStyle(
-                            fontSize: 20.0,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(user.fullName,
+                          style: Theme.of(context).textTheme.headlineSmall),
+                      const SizedBox(height: 4),
+                      Text(user.email,
+                          style: Theme.of(context).textTheme.bodyMedium),
+                      const SizedBox(height: 8),
+                      Text(user.isHost == true ? 'Hôte' : 'Locataire',
+                          style: Theme.of(context).textTheme.bodySmall),
                     ],
-                  ),
-                ),
-                const Padding(
-                  padding: EdgeInsets.only(top: 50.0),
-                  child: Text(
-                    'Reviews',
-                    style: TextStyle(
-                      fontSize: 25.0,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const Padding(
-                  padding: EdgeInsets.only(top: 20.0),
-                  child: ReviewForm(),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(top: 20.0),
-                  child: ListView.builder(
-                    itemCount: 2,
-                    shrinkWrap: true,
-                    itemBuilder: (context, index) {
-                      return Padding(
-                        padding: const EdgeInsets.only(top: 10.0, bottom: 10.0),
-                        child: ReviewListTitle(key: UniqueKey()),
-                      ); // Adjust this according to how ReviewListTitle is defined
-                    },
                   ),
                 ),
               ],
             ),
-          ),
+            const SizedBox(height: 20),
+            Text('À propos', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            Text(user.bio ?? 'Aucune description fournie',
+                style: Theme.of(context).textTheme.bodyLarge),
+            const SizedBox(height: 16),
+            Text('Localisation', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            Text(
+              (user.city != null && user.country != null)
+                  ? '${user.city}, ${user.country}'
+                  : 'Non spécifiée',
+              style: Theme.of(context).textTheme.bodyLarge,
+            ),
+            const SizedBox(height: 24),
+            Text('Mes annonces', style: Theme.of(context).textTheme.titleLarge),
+            const SizedBox(height: 8),
+            Consumer<PropertyProvider>(
+              builder: (context, provider, child) {
+                if (_loadingProperties)
+                  return const Center(child: CircularProgressIndicator());
+                final list = provider.userProperties ?? [];
+                if (list.isEmpty)
+                  return const Text('Vous n\'avez pas d\'annonces.');
+                return ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  itemCount: list.length,
+                  itemBuilder: (context, i) {
+                    final Property p = list[i];
+                    return Card(
+                      margin: const EdgeInsets.symmetric(vertical: 8),
+                      child: ListTile(
+                        leading: p.imageUrls.isNotEmpty
+                            ? Image.network(p.imageUrls.first,
+                                width: 72, height: 72, fit: BoxFit.cover)
+                            : Container(
+                                width: 72, height: 72, color: Colors.grey[200]),
+                        title: Text(p.title),
+                        subtitle: Text(
+                            '${p.city} • ${p.price.toStringAsFixed(0)} € • ${p.status}'),
+                        onTap: () => Navigator.pushNamed(
+                            context, '/viewPosting',
+                            arguments: p),
+                        trailing: PopupMenuButton<String>(
+                          onSelected: (value) async {
+                            if (value == 'mark_rented') {
+                              final messenger = ScaffoldMessenger.of(context);
+                              final ok = await provider.completeRental(p);
+                              if (mounted) {
+                                messenger.showSnackBar(SnackBar(
+                                    content: Text(ok
+                                        ? 'Annonce marquée louée'
+                                        : 'Échec')));
+                              }
+                            } else if (value == 'restore') {
+                              final messenger = ScaffoldMessenger.of(context);
+                              final ok = await provider.restoreProperty(p);
+                              if (mounted) {
+                                messenger.showSnackBar(SnackBar(
+                                    content: Text(ok
+                                        ? 'Annonce remise en ligne'
+                                        : 'Échec')));
+                              }
+                            } else if (value == 'edit') {
+                              if (mounted) {
+                                Navigator.pushNamed(context, '/editProperty',
+                                    arguments: p);
+                              }
+                            } else if (value == 'delete') {
+                              final messenger = ScaffoldMessenger.of(context);
+                              final res = await provider.deleteProperty(p.id);
+                              if (res['success'] == true) {
+                                // Reload provider lists via provider methods
+                                final uid = user.uid;
+                                await provider.loadHostProperties(uid);
+                                await provider.fetchProperties();
+                                if (mounted) {
+                                  messenger.showSnackBar(const SnackBar(
+                                      content: Text('Annonce supprimée')));
+                                }
+                              } else {
+                                if (mounted) {
+                                  messenger.showSnackBar(SnackBar(
+                                      content: Text(
+                                          'Erreur: ${res['message'] ?? ''}')));
+                                }
+                              }
+                            }
+                          },
+                          itemBuilder: (context) => [
+                            if (p.status != 'rented')
+                              const PopupMenuItem(
+                                  value: 'mark_rented',
+                                  child: Text('Marquer loué')),
+                            if (p.status == 'rented')
+                              const PopupMenuItem(
+                                  value: 'restore',
+                                  child: Text('Remettre en ligne')),
+                            const PopupMenuItem(
+                                value: 'edit', child: Text('Éditer')),
+                            const PopupMenuItem(
+                                value: 'delete', child: Text('Supprimer')),
+                          ],
+                        ),
+                      ),
+                    );
+                  },
+                );
+              },
+            ),
+            const SizedBox(height: 24),
+          ],
         ),
       ),
     );

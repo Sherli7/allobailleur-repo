@@ -197,6 +197,7 @@ class HomeContentPage extends StatelessWidget {
               child: SingleChildScrollView(
                 padding: const EdgeInsets.all(16),
                 child: Column(
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     const SizedBox(height: 100), // Espace pour AppBar hero
@@ -252,7 +253,7 @@ class HomeContentPage extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Trouvez votre logement idéal à Nice',
+                                  'Trouvez votre logement idéal à n\importe où au Cameroun',
                                   style: TextStyle(
                                     fontSize: 18,
                                     color: Colors.white.withOpacity(0.9),
@@ -272,13 +273,16 @@ class HomeContentPage extends StatelessWidget {
 
                     // Section des propriétés populaires avec titre animé
                     Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          'Propriétés populaires',
-                          style: Theme.of(context)
-                              .textTheme
-                              .headlineSmall, // Style MD3
+                        Expanded(
+                          child: Text(
+                            'Propriétés populaires',
+                            style: Theme.of(context)
+                                .textTheme
+                                .headlineSmall, // Style MD3
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                         TextButton.icon(
                           onPressed: () {
@@ -330,7 +334,8 @@ class HomeContentPage extends StatelessWidget {
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
-                          childAspectRatio: 0.75,
+                          // Reduce ratio to make tiles slightly taller and avoid tight vertical constraints
+                          childAspectRatio: 0.66,
                           crossAxisSpacing: 12,
                           mainAxisSpacing: 12,
                         ),
@@ -407,6 +412,7 @@ class _PropertyCardState extends State<PropertyCard> {
             );
           },
           child: Column(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Slider d'images avec indicateurs
@@ -513,7 +519,8 @@ class _PropertyCardState extends State<PropertyCard> {
                 ),
               ),
               // Infos avec rating
-              Expanded(
+              Flexible(
+                fit: FlexFit.loose,
                 child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: Column(
@@ -553,18 +560,23 @@ class _PropertyCardState extends State<PropertyCard> {
                       ),
                       const SizedBox(height: 4),
                       Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text(
-                            '${widget.property.price} €/mois',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
-                                ?.copyWith(
-                                  color: Theme.of(context).colorScheme.primary,
-                                  fontWeight: FontWeight.bold,
-                                ),
+                          Expanded(
+                            child: Text(
+                              '${widget.property.price} FCFA/mois',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
+                                    color:
+                                        Theme.of(context).colorScheme.primary,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                            ),
                           ),
+                          const SizedBox(width: 8),
                           Row(
                             mainAxisSize: MainAxisSize.min,
                             children: List.generate(5, (starIndex) {
@@ -575,7 +587,7 @@ class _PropertyCardState extends State<PropertyCard> {
                                 color: Theme.of(context)
                                     .colorScheme
                                     .tertiary
-                                    .withOpacity(0.7), // Tertiaire MD3 atténué
+                                    .withOpacity(0.7),
                                 size: 16,
                               );
                             }),

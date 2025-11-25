@@ -161,434 +161,456 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                     });
                                   }
 
-                                  return Column(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      // Logo avec animation stagger
-                                      FadeTransition(
-                                        opacity: _staggerAnimations[0],
-                                        child: ScaleTransition(
-                                          scale: _staggerAnimations[0].drive(
-                                            Tween(begin: 0.8, end: 1.0),
-                                          ),
-                                          child: Container(
-                                            width: 90,
-                                            height: 90,
-                                            decoration: BoxDecoration(
-                                              shape: BoxShape.circle,
-                                              gradient: LinearGradient(
-                                                colors: [
-                                                  theme.colorScheme.primary,
-                                                  theme.colorScheme.primary
-                                                      .withOpacity(0.7),
-                                                ],
-                                              ),
+                                  return SingleChildScrollView(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        // Logo avec animation stagger
+                                        FadeTransition(
+                                          opacity: _staggerAnimations[0],
+                                          child: ScaleTransition(
+                                            scale: _staggerAnimations[0].drive(
+                                              Tween(begin: 0.8, end: 1.0),
                                             ),
-                                            child: const Icon(
-                                              Icons.home,
-                                              size: 50,
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 20),
-                                      // Titre avec stagger
-                                      FadeTransition(
-                                        opacity: _staggerAnimations[1],
-                                        child: SlideTransition(
-                                          position: _staggerAnimations[1].drive(
-                                            Tween<Offset>(
-                                              begin: const Offset(0, 0.2),
-                                              end: Offset.zero,
-                                            ),
-                                          ),
-                                          child: Text(
-                                            'AllôBailleur',
-                                            style: theme.textTheme.headlineLarge
-                                                ?.copyWith(
-                                              fontWeight: FontWeight.w700,
-                                              color: Colors.white,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      FadeTransition(
-                                        opacity: _staggerAnimations[1],
-                                        child: Text(
-                                          'Connectez-vous pour continuer',
-                                          style: theme.textTheme.bodyLarge
-                                              ?.copyWith(
-                                            color:
-                                                Colors.white.withOpacity(0.8),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 32),
-                                      // Email field avec focus animation
-                                      FadeTransition(
-                                        opacity: _staggerAnimations[2],
-                                        child: SlideTransition(
-                                          position: _staggerAnimations[2].drive(
-                                            Tween<Offset>(
-                                              begin: const Offset(0, 0.1),
-                                              end: Offset.zero,
-                                            ),
-                                          ),
-                                          child: TextFormField(
-                                            controller: _emailController,
-                                            keyboardType:
-                                                TextInputType.emailAddress,
-                                            autovalidateMode: AutovalidateMode
-                                                .onUserInteraction,
-                                            validator: (value) {
-                                              if (value == null ||
-                                                  value.isEmpty)
-                                                return 'Email requis';
-                                              if (!RegExp(
-                                                      r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                                                  .hasMatch(value))
-                                                return 'Email invalide';
-                                              return null;
-                                            },
-                                            decoration: InputDecoration(
-                                              labelText: 'Email',
-                                              labelStyle:
-                                                  theme.textTheme.bodyMedium,
-                                              prefixIcon: Icon(
-                                                  Icons.email_outlined,
-                                                  color: theme
-                                                      .colorScheme.primary),
-                                              suffixIcon: _emailController
-                                                          .text.isNotEmpty &&
-                                                      RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                                                          .hasMatch(
-                                                              _emailController
-                                                                  .text)
-                                                  ? const Icon(
-                                                      Icons.check_circle,
-                                                      color: Colors.green,
-                                                      semanticLabel: 'Valide')
-                                                  : null,
-                                              border: OutlineInputBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(16),
-                                                borderSide: BorderSide(
-                                                    color: Colors.white
-                                                        .withOpacity(0.3)),
-                                              ),
-                                              focusedBorder: OutlineInputBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(16),
-                                                borderSide: BorderSide(
-                                                    color: theme
-                                                        .colorScheme.primary,
-                                                    width: 2),
-                                              ),
-                                              filled: true,
-                                              fillColor:
-                                                  Colors.white.withOpacity(0.9),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      // Password field
-                                      FadeTransition(
-                                        opacity: _staggerAnimations[2],
-                                        child: SlideTransition(
-                                          position: _staggerAnimations[2].drive(
-                                            Tween<Offset>(
-                                              begin: const Offset(0, 0.1),
-                                              end: Offset.zero,
-                                            ),
-                                          ),
-                                          child: TextFormField(
-                                            controller: _passwordController,
-                                            obscureText: _obscurePassword,
-                                            autovalidateMode: AutovalidateMode
-                                                .onUserInteraction,
-                                            validator: (value) {
-                                              if (value == null ||
-                                                  value.isEmpty)
-                                                return 'Mot de passe requis';
-                                              if (value.length < 6)
-                                                return 'Min 6 caractères';
-                                              return null;
-                                            },
-                                            decoration: InputDecoration(
-                                              labelText: 'Mot de passe',
-                                              labelStyle:
-                                                  theme.textTheme.bodyMedium,
-                                              prefixIcon: Icon(
-                                                  Icons.lock_outline,
-                                                  color: theme
-                                                      .colorScheme.primary),
-                                              suffixIcon: Row(
-                                                mainAxisSize: MainAxisSize.min,
-                                                children: [
-                                                  _passwordController
-                                                              .text.length >=
-                                                          6
-                                                      ? const Icon(
-                                                          Icons.check_circle,
-                                                          color: Colors.green,
-                                                          size: 20)
-                                                      : const SizedBox(
-                                                          width: 0),
-                                                  IconButton(
-                                                    icon: Icon(
-                                                      _obscurePassword
-                                                          ? Icons.visibility_off
-                                                          : Icons.visibility,
-                                                      color: Colors.grey[600],
-                                                    ),
-                                                    onPressed: () => setState(
-                                                        () => _obscurePassword =
-                                                            !_obscurePassword),
-                                                  ),
-                                                ],
-                                              ),
-                                              border: OutlineInputBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(16),
-                                                borderSide: BorderSide(
-                                                    color: Colors.white
-                                                        .withOpacity(0.3)),
-                                              ),
-                                              focusedBorder: OutlineInputBorder(
-                                                borderRadius:
-                                                    BorderRadius.circular(16),
-                                                borderSide: BorderSide(
-                                                    color: theme
-                                                        .colorScheme.primary,
-                                                    width: 2),
-                                              ),
-                                              filled: true,
-                                              fillColor:
-                                                  Colors.white.withOpacity(0.9),
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 8),
-                                      Align(
-                                        alignment: Alignment.centerRight,
-                                        child: TextButton(
-                                          onPressed: () => Navigator.pushNamed(
-                                              context,
-                                              '/forgot-password'), // Route à ajouter
-                                          child: Text(
-                                            'Mot de passe oublié ?',
-                                            style: theme.textTheme.bodySmall
-                                                ?.copyWith(
-                                              color:
-                                                  Colors.white.withOpacity(0.7),
-                                              fontSize: 14,
-                                            ),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 32),
-                                      // Bouton principal avec dégradé
-                                      FadeTransition(
-                                        opacity: _staggerAnimations[3],
-                                        child: SlideTransition(
-                                          position: _staggerAnimations[3].drive(
-                                            Tween<Offset>(
-                                              begin: const Offset(0, 0.2),
-                                              end: Offset.zero,
-                                            ),
-                                          ),
-                                          child: SizedBox(
-                                            width: double.infinity,
-                                            height: 56,
-                                            child: ElevatedButton(
-                                              onPressed:
-                                                  isLoading ? null : _login,
-                                              style: ElevatedButton.styleFrom(
-                                                backgroundColor:
-                                                    Colors.transparent,
-                                                shadowColor: theme
-                                                    .colorScheme.primary
-                                                    .withOpacity(0.3),
-                                                elevation: 8,
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(16),
+                                            child: Container(
+                                              width: 90,
+                                              height: 90,
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                gradient: LinearGradient(
+                                                  colors: [
+                                                    theme.colorScheme.primary,
+                                                    theme.colorScheme.primary
+                                                        .withOpacity(0.7),
+                                                  ],
                                                 ),
                                               ),
-                                              child: Container(
-                                                decoration: BoxDecoration(
-                                                  gradient: LinearGradient(
-                                                    colors: [
-                                                      theme.colorScheme.primary,
-                                                      theme.colorScheme.primary
-                                                          .withOpacity(0.8),
-                                                    ],
-                                                  ),
-                                                  borderRadius:
-                                                      BorderRadius.circular(16),
-                                                ),
-                                                child: isLoading
-                                                    ? const Center(
-                                                        child: SizedBox(
-                                                          width: 24,
-                                                          height: 24,
-                                                          child:
-                                                              CircularProgressIndicator(
-                                                            strokeWidth: 2,
-                                                            valueColor:
-                                                                AlwaysStoppedAnimation<
-                                                                        Color>(
-                                                                    Colors
-                                                                        .white),
-                                                          ),
-                                                        ),
-                                                      )
-                                                    : const Center(
-                                                        child: Text(
-                                                          'Se connecter',
-                                                          style: TextStyle(
-                                                            fontSize: 16,
-                                                            fontWeight:
-                                                                FontWeight.w600,
-                                                            color: Colors.white,
-                                                          ),
-                                                        ),
-                                                      ),
+                                              child: const Icon(
+                                                Icons.home,
+                                                size: 50,
+                                                color: Colors.white,
                                               ),
                                             ),
                                           ),
                                         ),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      Row(
-                                        children: const [
-                                          Expanded(
-                                              child: Divider(
-                                                  color: Colors.white24)),
-                                          Padding(
-                                            padding: EdgeInsets.symmetric(
-                                                horizontal: 16),
-                                            child: Text('ou',
-                                                style: TextStyle(
-                                                    color: Colors.white54)),
-                                          ),
-                                          Expanded(
-                                              child: Divider(
-                                                  color: Colors.white24)),
-                                        ],
-                                      ),
-                                      const SizedBox(height: 16),
-                                      // Bouton Google
-                                      FadeTransition(
-                                        opacity: _staggerAnimations[4],
-                                        child: SlideTransition(
-                                          position: _staggerAnimations[4].drive(
-                                            Tween<Offset>(
-                                              begin: const Offset(0, 0.2),
-                                              end: Offset.zero,
-                                            ),
-                                          ),
-                                          child: SizedBox(
-                                            width: double.infinity,
-                                            height: 56,
-                                            child: OutlinedButton.icon(
-                                              icon: Image.asset(
-                                                'assets/images/google_logo.png',
-                                                width: 20,
-                                                height: 20,
+                                        const SizedBox(height: 20),
+                                        // Titre avec stagger
+                                        FadeTransition(
+                                          opacity: _staggerAnimations[1],
+                                          child: SlideTransition(
+                                            position:
+                                                _staggerAnimations[1].drive(
+                                              Tween<Offset>(
+                                                begin: const Offset(0, 0.2),
+                                                end: Offset.zero,
                                               ),
-                                              label: Text(
-                                                'Continuer avec Google',
-                                                style: theme
-                                                    .textTheme.bodyMedium
-                                                    ?.copyWith(fontSize: 16),
-                                              ),
-                                              style: OutlinedButton.styleFrom(
-                                                side: BorderSide(
-                                                    color: Colors.white
-                                                        .withOpacity(0.3)),
-                                                shape: RoundedRectangleBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(16),
-                                                ),
-                                              ),
-                                              onPressed: isLoading
-                                                  ? null
-                                                  : () async {
-                                                      final navigator =
-                                                          Navigator.of(context);
-                                                      final auth = Provider.of<
-                                                              app_auth
-                                                              .AuthProvider>(
-                                                          context,
-                                                          listen: false);
-                                                      final ok = await auth
-                                                          .signInWithGoogle();
-                                                      if (!mounted) return;
-                                                      if (ok) {
-                                                        navigator
-                                                            .pushReplacementNamed(
-                                                                GuestHomePage
-                                                                    .routeName);
-                                                      }
-                                                    },
                                             ),
-                                          ),
-                                        ),
-                                      ),
-                                      const SizedBox(height: 16),
-                                      // Bouton biométrie (optionnel)
-                                      if (MediaQuery.of(context).size.width <
-                                          600) // Seulement mobile
-                                        TextButton.icon(
-                                          icon: const Icon(Icons.fingerprint,
-                                              color: Colors.white54, size: 20),
-                                          label: Text(
-                                            'Connexion biométrique',
-                                            style: theme.textTheme.bodyMedium
-                                                ?.copyWith(
-                                              color:
-                                                  Colors.white.withOpacity(0.7),
-                                            ),
-                                          ),
-                                          onPressed: isLoading
-                                              ? null
-                                              : () => _showError(
-                                                  'Biometric login removed'),
-                                        ),
-                                      const SizedBox(height: 24),
-                                      // Lien inscription
-                                      Row(
-                                        mainAxisAlignment:
-                                            MainAxisAlignment.center,
-                                        children: [
-                                          Text(
-                                            "Pas de compte ? ",
-                                            style: theme.textTheme.bodyMedium
-                                                ?.copyWith(
-                                                    color: Colors.white
-                                                        .withOpacity(0.7)),
-                                          ),
-                                          TextButton(
-                                            onPressed: () =>
-                                                Navigator.pushNamed(
-                                                    context, '/register'),
                                             child: Text(
-                                              'S\'inscrire',
+                                              'AllôBailleur',
+                                              style: theme
+                                                  .textTheme.headlineLarge
+                                                  ?.copyWith(
+                                                fontWeight: FontWeight.w700,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        FadeTransition(
+                                          opacity: _staggerAnimations[1],
+                                          child: Text(
+                                            'Connectez-vous pour continuer',
+                                            style: theme.textTheme.bodyLarge
+                                                ?.copyWith(
+                                              color:
+                                                  Colors.white.withOpacity(0.8),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 32),
+                                        // Email field avec focus animation
+                                        FadeTransition(
+                                          opacity: _staggerAnimations[2],
+                                          child: SlideTransition(
+                                            position:
+                                                _staggerAnimations[2].drive(
+                                              Tween<Offset>(
+                                                begin: const Offset(0, 0.1),
+                                                end: Offset.zero,
+                                              ),
+                                            ),
+                                            child: TextFormField(
+                                              controller: _emailController,
+                                              keyboardType:
+                                                  TextInputType.emailAddress,
+                                              autovalidateMode: AutovalidateMode
+                                                  .onUserInteraction,
+                                              validator: (value) {
+                                                if (value == null ||
+                                                    value.isEmpty)
+                                                  return 'Email requis';
+                                                if (!RegExp(
+                                                        r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                                                    .hasMatch(value))
+                                                  return 'Email invalide';
+                                                return null;
+                                              },
+                                              decoration: InputDecoration(
+                                                labelText: 'Email',
+                                                labelStyle:
+                                                    theme.textTheme.bodyMedium,
+                                                prefixIcon: Icon(
+                                                    Icons.email_outlined,
+                                                    color: theme
+                                                        .colorScheme.primary),
+                                                suffixIcon: _emailController
+                                                            .text.isNotEmpty &&
+                                                        RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
+                                                            .hasMatch(
+                                                                _emailController
+                                                                    .text)
+                                                    ? const Icon(
+                                                        Icons.check_circle,
+                                                        color: Colors.green,
+                                                        semanticLabel: 'Valide')
+                                                    : null,
+                                                border: OutlineInputBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(16),
+                                                  borderSide: BorderSide(
+                                                      color: Colors.white
+                                                          .withOpacity(0.3)),
+                                                ),
+                                                focusedBorder:
+                                                    OutlineInputBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(16),
+                                                  borderSide: BorderSide(
+                                                      color: theme
+                                                          .colorScheme.primary,
+                                                      width: 2),
+                                                ),
+                                                filled: true,
+                                                fillColor: Colors.white
+                                                    .withOpacity(0.9),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        // Password field
+                                        FadeTransition(
+                                          opacity: _staggerAnimations[2],
+                                          child: SlideTransition(
+                                            position:
+                                                _staggerAnimations[2].drive(
+                                              Tween<Offset>(
+                                                begin: const Offset(0, 0.1),
+                                                end: Offset.zero,
+                                              ),
+                                            ),
+                                            child: TextFormField(
+                                              controller: _passwordController,
+                                              obscureText: _obscurePassword,
+                                              autovalidateMode: AutovalidateMode
+                                                  .onUserInteraction,
+                                              validator: (value) {
+                                                if (value == null ||
+                                                    value.isEmpty)
+                                                  return 'Mot de passe requis';
+                                                if (value.length < 6)
+                                                  return 'Min 6 caractères';
+                                                return null;
+                                              },
+                                              decoration: InputDecoration(
+                                                labelText: 'Mot de passe',
+                                                labelStyle:
+                                                    theme.textTheme.bodyMedium,
+                                                prefixIcon: Icon(
+                                                    Icons.lock_outline,
+                                                    color: theme
+                                                        .colorScheme.primary),
+                                                suffixIcon: Row(
+                                                  mainAxisSize:
+                                                      MainAxisSize.min,
+                                                  children: [
+                                                    _passwordController
+                                                                .text.length >=
+                                                            6
+                                                        ? const Icon(
+                                                            Icons.check_circle,
+                                                            color: Colors.green,
+                                                            size: 20)
+                                                        : const SizedBox(
+                                                            width: 0),
+                                                    IconButton(
+                                                      icon: Icon(
+                                                        _obscurePassword
+                                                            ? Icons
+                                                                .visibility_off
+                                                            : Icons.visibility,
+                                                        color: Colors.grey[600],
+                                                      ),
+                                                      onPressed: () => setState(
+                                                          () => _obscurePassword =
+                                                              !_obscurePassword),
+                                                    ),
+                                                  ],
+                                                ),
+                                                border: OutlineInputBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(16),
+                                                  borderSide: BorderSide(
+                                                      color: Colors.white
+                                                          .withOpacity(0.3)),
+                                                ),
+                                                focusedBorder:
+                                                    OutlineInputBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(16),
+                                                  borderSide: BorderSide(
+                                                      color: theme
+                                                          .colorScheme.primary,
+                                                      width: 2),
+                                                ),
+                                                filled: true,
+                                                fillColor: Colors.white
+                                                    .withOpacity(0.9),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 8),
+                                        Align(
+                                          alignment: Alignment.centerRight,
+                                          child: TextButton(
+                                            onPressed: () => Navigator.pushNamed(
+                                                context,
+                                                '/forgot-password'), // Route à ajouter
+                                            child: Text(
+                                              'Mot de passe oublié ?',
+                                              style: theme.textTheme.bodySmall
+                                                  ?.copyWith(
+                                                color: Colors.white
+                                                    .withOpacity(0.7),
+                                                fontSize: 14,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 32),
+                                        // Bouton principal avec dégradé
+                                        FadeTransition(
+                                          opacity: _staggerAnimations[3],
+                                          child: SlideTransition(
+                                            position:
+                                                _staggerAnimations[3].drive(
+                                              Tween<Offset>(
+                                                begin: const Offset(0, 0.2),
+                                                end: Offset.zero,
+                                              ),
+                                            ),
+                                            child: SizedBox(
+                                              width: double.infinity,
+                                              height: 56,
+                                              child: ElevatedButton(
+                                                onPressed:
+                                                    isLoading ? null : _login,
+                                                style: ElevatedButton.styleFrom(
+                                                  backgroundColor:
+                                                      Colors.transparent,
+                                                  shadowColor: theme
+                                                      .colorScheme.primary
+                                                      .withOpacity(0.3),
+                                                  elevation: 8,
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            16),
+                                                  ),
+                                                ),
+                                                child: Container(
+                                                  decoration: BoxDecoration(
+                                                    gradient: LinearGradient(
+                                                      colors: [
+                                                        theme.colorScheme
+                                                            .primary,
+                                                        theme
+                                                            .colorScheme.primary
+                                                            .withOpacity(0.8),
+                                                      ],
+                                                    ),
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            16),
+                                                  ),
+                                                  child: isLoading
+                                                      ? const Center(
+                                                          child: SizedBox(
+                                                            width: 24,
+                                                            height: 24,
+                                                            child:
+                                                                CircularProgressIndicator(
+                                                              strokeWidth: 2,
+                                                              valueColor:
+                                                                  AlwaysStoppedAnimation<
+                                                                          Color>(
+                                                                      Colors
+                                                                          .white),
+                                                            ),
+                                                          ),
+                                                        )
+                                                      : const Center(
+                                                          child: Text(
+                                                            'Se connecter',
+                                                            style: TextStyle(
+                                                              fontSize: 16,
+                                                              fontWeight:
+                                                                  FontWeight
+                                                                      .w600,
+                                                              color:
+                                                                  Colors.white,
+                                                            ),
+                                                          ),
+                                                        ),
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        Row(
+                                          children: const [
+                                            Expanded(
+                                                child: Divider(
+                                                    color: Colors.white24)),
+                                            Padding(
+                                              padding: EdgeInsets.symmetric(
+                                                  horizontal: 16),
+                                              child: Text('ou',
+                                                  style: TextStyle(
+                                                      color: Colors.white54)),
+                                            ),
+                                            Expanded(
+                                                child: Divider(
+                                                    color: Colors.white24)),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 16),
+                                        // Bouton Google
+                                        FadeTransition(
+                                          opacity: _staggerAnimations[4],
+                                          child: SlideTransition(
+                                            position:
+                                                _staggerAnimations[4].drive(
+                                              Tween<Offset>(
+                                                begin: const Offset(0, 0.2),
+                                                end: Offset.zero,
+                                              ),
+                                            ),
+                                            child: SizedBox(
+                                              width: double.infinity,
+                                              height: 56,
+                                              child: OutlinedButton.icon(
+                                                icon: Image.asset(
+                                                  'assets/images/logo.png',
+                                                  width: 20,
+                                                  height: 20,
+                                                ),
+                                                label: Text(
+                                                  'Continuer avec Google',
+                                                  style: theme
+                                                      .textTheme.bodyMedium
+                                                      ?.copyWith(fontSize: 16),
+                                                ),
+                                                style: OutlinedButton.styleFrom(
+                                                  side: BorderSide(
+                                                      color: Colors.white
+                                                          .withOpacity(0.3)),
+                                                  shape: RoundedRectangleBorder(
+                                                    borderRadius:
+                                                        BorderRadius.circular(
+                                                            16),
+                                                  ),
+                                                ),
+                                                onPressed: isLoading
+                                                    ? null
+                                                    : () async {
+                                                        final navigator =
+                                                            Navigator.of(
+                                                                context);
+                                                        final auth = Provider.of<
+                                                                app_auth
+                                                                .AuthProvider>(
+                                                            context,
+                                                            listen: false);
+                                                        final ok = await auth
+                                                            .signInWithGoogle();
+                                                        if (!mounted) return;
+                                                        if (ok) {
+                                                          navigator
+                                                              .pushReplacementNamed(
+                                                                  GuestHomePage
+                                                                      .routeName);
+                                                        }
+                                                      },
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 16),
+                                        // Bouton biométrie (optionnel)
+                                        if (MediaQuery.of(context).size.width <
+                                            600) // Seulement mobile
+                                          TextButton.icon(
+                                            icon: const Icon(Icons.fingerprint,
+                                                color: Colors.white54,
+                                                size: 20),
+                                            label: Text(
+                                              'Connexion biométrique',
                                               style: theme.textTheme.bodyMedium
                                                   ?.copyWith(
-                                                color: Colors.white,
-                                                fontWeight: FontWeight.w600,
+                                                color: Colors.white
+                                                    .withOpacity(0.7),
                                               ),
                                             ),
+                                            onPressed: isLoading
+                                                ? null
+                                                : () => _showError(
+                                                    'Biometric login removed'),
                                           ),
-                                        ],
-                                      ),
-                                    ],
+                                        const SizedBox(height: 24),
+                                        // Lien inscription
+                                        Row(
+                                          mainAxisAlignment:
+                                              MainAxisAlignment.center,
+                                          children: [
+                                            Text(
+                                              "Pas de compte ? ",
+                                              style: theme.textTheme.bodyMedium
+                                                  ?.copyWith(
+                                                      color: Colors.white
+                                                          .withOpacity(0.7)),
+                                            ),
+                                            TextButton(
+                                              onPressed: () =>
+                                                  Navigator.pushNamed(
+                                                      context, '/register'),
+                                              child: Text(
+                                                'S\'inscrire',
+                                                style: theme
+                                                    .textTheme.bodyMedium
+                                                    ?.copyWith(
+                                                  color: Colors.white,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ],
+                                    ),
                                   );
                                 },
                               ),

@@ -4,7 +4,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:provider/provider.dart';
 import 'package:rent_house/Services/AuthService.dart';
 
-import 'package:rent_house/Models/AppConstants.dart';
 import 'package:rent_house/Models/property.dart';
 import 'package:rent_house/Screens/BookPostingPage.dart';
 import 'package:rent_house/Screens/guestHomePage.dart';

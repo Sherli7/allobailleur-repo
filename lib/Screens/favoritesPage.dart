@@ -178,7 +178,7 @@ class _FavoritesPageState extends State<FavoritesPage> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text(
-                      '${property.price} €/mois',
+                      '${property.price} FCFA/mois',
                       style: Theme.of(context).textTheme.titleLarge?.copyWith(
                             fontWeight: FontWeight.bold,
                             color: Theme.of(context).colorScheme.primary,

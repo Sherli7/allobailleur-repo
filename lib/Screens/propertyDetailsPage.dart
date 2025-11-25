@@ -311,6 +311,11 @@ class _BookingPageState extends State<BookingPage> {
         updatedAt: DateTime.now(),
       );
 
+      // Capture propertyProvider before awaiting any async operations
+      // to avoid using BuildContext across async gaps.
+      final propertyProvider =
+          Provider.of<PropertyProvider>(context, listen: false);
+
       final created = await bookingProvider.createBooking(booking);
       if (!created) {
         if (mounted) {
@@ -320,8 +325,6 @@ class _BookingPageState extends State<BookingPage> {
         return;
       }
 
-      final propertyProvider =
-          Provider.of<PropertyProvider>(context, listen: false);
       await propertyProvider.completeRental(property);
 
       if (mounted) {

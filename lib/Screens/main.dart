@@ -121,7 +121,7 @@ class AuthWrapper extends StatelessWidget {
     final firebaseUser = context.watch<User?>();
 
     if (firebaseUser == null) {
-      return const LoginPage(title: AppConstants.appName);
+      return const LoginPage();
     }
 
     // Ajout d'un loader si besoin (ex. pendant fetch profile dans AuthProvider)

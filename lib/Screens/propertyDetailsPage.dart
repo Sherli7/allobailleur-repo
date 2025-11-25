@@ -27,10 +27,10 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
     super.initState();
     // Capture provider outside the post frame callback to avoid using
     // BuildContext across async gaps (analyzer warning).
-    final _initialProvider =
+    final initialProvider =
         Provider.of<PropertyProvider>(context, listen: false);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final favs = _initialProvider.favorites;
+      final favs = initialProvider.favorites;
       if (favs != null) {
         setState(() {
           _isFavorite = favs.any((p) => p.id == widget.property.id);
@@ -80,33 +80,31 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
   Widget build(BuildContext context) {
     final displayCurrency =
         widget.property.currency.isNotEmpty ? widget.property.currency : 'XAF';
+    final authProvider =
+        Provider.of<app_auth.AuthProvider>(context, listen: false);
+    final currentUid = authProvider.firebaseUser?.uid;
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.property.title),
         actions: [
-          // Show edit button to owner
-          Consumer<app_auth.AuthProvider>(builder: (context, auth, _) {
-            final currentUid = auth.firebaseUser?.uid;
-            if (currentUid != null && currentUid == widget.property.ownerId) {
-              return IconButton(
-                icon: const Icon(Icons.edit),
-                onPressed: () async {
-                  // Capture navigator and provider before awaiting to avoid
-                  // using BuildContext across async gaps.
-                  final navigator = Navigator.of(context);
-                  final provider =
-                      Provider.of<PropertyProvider>(context, listen: false);
-                  await navigator.push(MaterialPageRoute(
-                    builder: (_) => EditPropertyPage(property: widget.property),
-                  ));
-                  if (!mounted) return;
-                  await provider.fetchProperties();
-                  await provider.loadHostProperties(currentUid);
-                },
-              );
-            }
-            return const SizedBox.shrink();
-          }),
+          // Show edit button to owner (use build context's provider)
+          if (currentUid != null && currentUid == widget.property.ownerId)
+            IconButton(
+              icon: const Icon(Icons.edit),
+              onPressed: () async {
+                // Capture navigator and provider before awaiting to avoid
+                // using BuildContext across async gaps.
+                final navigator = Navigator.of(context);
+                final provider =
+                    Provider.of<PropertyProvider>(context, listen: false);
+                await navigator.push(MaterialPageRoute(
+                  builder: (_) => EditPropertyPage(property: widget.property),
+                ));
+                if (!mounted) return;
+                await provider.fetchProperties();
+                await provider.loadHostProperties(currentUid);
+              },
+            ),
           IconButton(
             icon: Icon(_isFavorite ? Icons.favorite : Icons.favorite_border),
             onPressed: _toggleFavorite,
@@ -291,7 +289,8 @@ class _BookingPageState extends State<BookingPage> {
     final navigator = Navigator.of(context);
     try {
       final nights = _checkOutDate!.difference(_checkInDate!).inDays;
-      final totalPrice = nights > 0 ? widget.property.price * nights : 0.0;
+      final property = widget.property; // capture widget values before awaits
+      final totalPrice = nights > 0 ? property.price * nights : 0.0;
 
       final bookingProvider =
           Provider.of<BookingProvider>(context, listen: false);
@@ -302,8 +301,8 @@ class _BookingPageState extends State<BookingPage> {
       final booking = Booking(
         id: '',
         guestId: guestId,
-        propertyId: widget.property.id,
-        hostId: widget.property.ownerId,
+        propertyId: property.id,
+        hostId: property.ownerId,
         checkInDate: _checkInDate!,
         checkOutDate: _checkOutDate!,
         totalPrice: totalPrice.toDouble(),
@@ -323,7 +322,7 @@ class _BookingPageState extends State<BookingPage> {
 
       final propertyProvider =
           Provider.of<PropertyProvider>(context, listen: false);
-      await propertyProvider.completeRental(widget.property);
+      await propertyProvider.completeRental(property);
 
       if (mounted) {
         messenger.showSnackBar(

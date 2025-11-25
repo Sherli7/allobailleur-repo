@@ -58,18 +58,19 @@ class _SearchPageState extends State<SearchPage> {
           }
 
           // Debug logs
-          print(
+          debugPrint(
               'PropertyProvider properties: ${propertyProvider.properties?.length ?? 0} items');
           if (propertyProvider.properties != null) {
             for (var prop in propertyProvider.properties!) {
-              print(
+              debugPrint(
                   'Property: ${prop.id} - ${prop.title} - Price: ${prop.price} - Status: ${prop.status}');
             }
           }
 
           _filteredProperties =
               _applyFilters(propertyProvider.properties ?? []);
-          print('Filtered properties: ${_filteredProperties.length} items');
+          debugPrint(
+              'Filtered properties: ${_filteredProperties.length} items');
 
           if (_filteredProperties.isEmpty) {
             return const Center(child: Text('Aucun logement trouvé'));
@@ -113,8 +114,8 @@ class _SearchPageState extends State<SearchPage> {
   }
 
   List<Property> _applyFilters(List<Property> allProperties) {
-    print('Applying filters to ${allProperties.length} properties');
-    print(
+    debugPrint('Applying filters to ${allProperties.length} properties');
+    debugPrint(
         'Filter criteria: minPrice=$_minPrice, maxPrice=$_maxPrice, type=$_selectedType, rooms=$_selectedRooms, search="${_searchController.text}"');
 
     return allProperties.where((p) {
@@ -122,21 +123,21 @@ class _SearchPageState extends State<SearchPage> {
           !p.title
               .toLowerCase()
               .contains(_searchController.text.toLowerCase())) {
-        print('Property ${p.id} filtered out by search text');
+        debugPrint('Property ${p.id} filtered out by search text');
         return false;
       }
       if (p.price < _minPrice || p.price > _maxPrice) {
-        print(
+        debugPrint(
             'Property ${p.id} filtered out by price: ${p.price} not in [$_minPrice, $_maxPrice]');
         return false;
       }
       if (_selectedType != null && p.type != _selectedType) {
-        print(
+        debugPrint(
             'Property ${p.id} filtered out by type: ${p.type} != $_selectedType');
         return false;
       }
       if (_selectedRooms > 0 && p.rooms != _selectedRooms) {
-        print(
+        debugPrint(
             'Property ${p.id} filtered out by rooms: ${p.rooms} != $_selectedRooms');
         return false;
       }
@@ -158,7 +159,7 @@ class _SearchPageState extends State<SearchPage> {
         property.imageUrls.isNotEmpty ? property.imageUrls.first : null;
 
     // Debug: Afficher les informations sur les images
-    print(
+    debugPrint(
         'Property ${property.id}: imageUrls = ${property.imageUrls}, first imageUrl = $imageUrl');
 
     return GestureDetector(

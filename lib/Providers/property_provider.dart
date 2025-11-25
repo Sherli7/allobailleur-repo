@@ -262,11 +262,11 @@ class PropertyService {
   /// EXISTANT: Set image URLs sur property
   Future<void> setPropertyImageUrls(
       String propertyId, List<String> urls) async {
-    print('Updating property $propertyId with image URLs: $urls');
+    debugPrint('Updating property $propertyId with image URLs: $urls');
     await _supabase
         .from('properties')
         .update({'imageUrls': urls}).eq('id', propertyId);
-    print('Property $propertyId updated with ${urls.length} image URLs');
+    debugPrint('Property $propertyId updated with ${urls.length} image URLs');
   }
 
   /// EXISTANT: Update property
@@ -350,14 +350,14 @@ class PropertyProvider with ChangeNotifier {
     try {
       properties =
           await _service.getPropertiesPaginated(page: page, pageSize: pageSize);
-      print('Loaded ${properties?.length ?? 0} properties from database');
+      debugPrint('Loaded ${properties?.length ?? 0} properties from database');
       if (properties != null && properties!.isNotEmpty) {
-        print(
+        debugPrint(
             'First property: ${properties!.first.title} - Price: ${properties!.first.price}');
       }
     } catch (e) {
       errorMessage = e.toString();
-      print('Error loading properties: $e');
+      debugPrint('Error loading properties: $e');
     }
     isLoading = false;
     notifyListeners();

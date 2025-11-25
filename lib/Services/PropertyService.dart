@@ -1,4 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:flutter/foundation.dart';
 import 'dart:io';
 import 'dart:typed_data';
 import 'package:rent_house/Models/property.dart';
@@ -284,7 +285,7 @@ class PropertyService {
           _supabase.storage.from('images').getPublicUrl(fileName);
       return downloadUrl;
     } catch (e) {
-      print('Erreur lors du téléchargement de l\'image: $e');
+      debugPrint('Erreur lors du téléchargement de l\'image: $e');
       return null;
     }
   }
@@ -323,7 +324,7 @@ class PropertyService {
           _supabase.storage.from('images').getPublicUrl(fileName);
       return downloadUrl;
     } catch (e) {
-      print('Erreur lors du téléchargement de l\'image (progress): $e');
+      debugPrint('Erreur lors du téléchargement de l\'image (progress): $e');
       try {
         onProgress(0.0);
       } catch (_) {}

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:io';
+import 'package:flutter/foundation.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -211,7 +212,7 @@ class MessagesService {
       final snapshot = await uploadTask;
       return await snapshot.ref.getDownloadURL();
     } catch (e) {
-      print('Erreur upload message image: $e');
+      debugPrint('Erreur upload message image: $e');
       return null;
     }
   }
@@ -239,7 +240,7 @@ class MessagesService {
       final snapshot = await uploadTask;
       return await snapshot.ref.getDownloadURL();
     } catch (e) {
-      print('Erreur upload message video: $e');
+      debugPrint('Erreur upload message video: $e');
       return null;
     }
   }

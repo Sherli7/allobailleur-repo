@@ -134,11 +134,12 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                       ),
                       child: Card(
                         elevation: 0,
-                        color: Colors.white.withOpacity(0.1), // Glassmorphism
+                        color:
+                            Color.fromRGBO(255, 255, 255, 0.1), // Glassmorphism
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(24),
-                          side:
-                              BorderSide(color: Colors.white.withOpacity(0.2)),
+                          side: BorderSide(
+                              color: Color.fromRGBO(255, 255, 255, 0.2)),
                         ),
                         margin: EdgeInsets.symmetric(
                           horizontal: isTablet ? 40 : 20,
@@ -181,7 +182,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                                   colors: [
                                                     theme.colorScheme.primary,
                                                     theme.colorScheme.primary
-                                                        .withOpacity(0.7),
+                                                        .withAlpha((0.7 * 255)
+                                                            .round()),
                                                   ],
                                                 ),
                                               ),
@@ -223,8 +225,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                             'Connectez-vous pour continuer',
                                             style: theme.textTheme.bodyLarge
                                                 ?.copyWith(
-                                              color:
-                                                  Colors.white.withOpacity(0.8),
+                                              color: Color.fromRGBO(
+                                                  255, 255, 255, 0.8),
                                             ),
                                           ),
                                         ),
@@ -279,8 +281,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                                   borderRadius:
                                                       BorderRadius.circular(16),
                                                   borderSide: BorderSide(
-                                                      color: Colors.white
-                                                          .withOpacity(0.3)),
+                                                      color: Color.fromRGBO(
+                                                          255, 255, 255, 0.3)),
                                                 ),
                                                 focusedBorder:
                                                     OutlineInputBorder(
@@ -292,8 +294,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                                       width: 2),
                                                 ),
                                                 filled: true,
-                                                fillColor: Colors.white
-                                                    .withOpacity(0.9),
+                                                fillColor: Color.fromRGBO(
+                                                    255, 255, 255, 0.9),
                                               ),
                                             ),
                                           ),
@@ -362,8 +364,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                                   borderRadius:
                                                       BorderRadius.circular(16),
                                                   borderSide: BorderSide(
-                                                      color: Colors.white
-                                                          .withOpacity(0.3)),
+                                                      color: Color.fromRGBO(
+                                                          255, 255, 255, 0.3)),
                                                 ),
                                                 focusedBorder:
                                                     OutlineInputBorder(
@@ -375,8 +377,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                                       width: 2),
                                                 ),
                                                 filled: true,
-                                                fillColor: Colors.white
-                                                    .withOpacity(0.9),
+                                                fillColor: Color.fromRGBO(
+                                                    255, 255, 255, 0.9),
                                               ),
                                             ),
                                           ),
@@ -392,8 +394,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                               'Mot de passe oublié ?',
                                               style: theme.textTheme.bodySmall
                                                   ?.copyWith(
-                                                color: Colors.white
-                                                    .withOpacity(0.7),
+                                                color: Color.fromRGBO(
+                                                    255, 255, 255, 0.7),
                                                 fontSize: 14,
                                               ),
                                             ),
@@ -422,7 +424,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                                       Colors.transparent,
                                                   shadowColor: theme
                                                       .colorScheme.primary
-                                                      .withOpacity(0.3),
+                                                      .withAlpha(
+                                                          (0.3 * 255).round()),
                                                   elevation: 8,
                                                   shape: RoundedRectangleBorder(
                                                     borderRadius:
@@ -438,7 +441,9 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                                             .primary,
                                                         theme
                                                             .colorScheme.primary
-                                                            .withOpacity(0.8),
+                                                            .withAlpha(
+                                                                (0.8 * 255)
+                                                                    .round()),
                                                       ],
                                                     ),
                                                     borderRadius:
@@ -526,8 +531,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                                 ),
                                                 style: OutlinedButton.styleFrom(
                                                   side: BorderSide(
-                                                      color: Colors.white
-                                                          .withOpacity(0.3)),
+                                                      color: Color.fromRGBO(
+                                                          255, 255, 255, 0.3)),
                                                   shape: RoundedRectangleBorder(
                                                     borderRadius:
                                                         BorderRadius.circular(
@@ -571,8 +576,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                               'Connexion biométrique',
                                               style: theme.textTheme.bodyMedium
                                                   ?.copyWith(
-                                                color: Colors.white
-                                                    .withOpacity(0.7),
+                                                color: Color.fromRGBO(
+                                                    255, 255, 255, 0.7),
                                               ),
                                             ),
                                             onPressed: isLoading
@@ -590,8 +595,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                               "Pas de compte ? ",
                                               style: theme.textTheme.bodyMedium
                                                   ?.copyWith(
-                                                      color: Colors.white
-                                                          .withOpacity(0.7)),
+                                                      color: Color.fromRGBO(
+                                                          255, 255, 255, 0.7)),
                                             ),
                                             TextButton(
                                               onPressed: () =>

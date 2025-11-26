@@ -1,6 +1,9 @@
+import 'dart:io';
+import 'dart:typed_data';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
+import 'package:image_picker/image_picker.dart';
 import 'package:rent_house/Services/google_sign_in_wrapper.dart';
 import 'package:rent_house/Models/Users.dart' as AppUserModel;
 
@@ -179,6 +182,53 @@ class AuthService {
           await _supabase.from('users').select().eq('uid', uid).single();
       return AppUserModel.User.fromJson(response);
     } catch (e) {
+      return null;
+    }
+  }
+
+  /// Upload and set a profile image for the current user.
+  /// Accepts a File, XFile or Uint8List and stores it in Supabase Storage
+  /// under `profiles/<uid>/<timestamp>.jpg`, then updates the user's
+  /// `profileImageUrl` in the `users` table and returns the public URL.
+  Future<String?> uploadProfileImage(dynamic file) async {
+    try {
+      final user = _firebaseAuth.currentUser;
+      if (user == null) return null;
+      final uid = user.uid;
+
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final filePath = 'profiles/$uid/$fileName';
+
+      Uint8List bytes;
+      if (file is XFile) {
+        bytes = await file.readAsBytes();
+      } else if (file is String) {
+        // path string -> File
+        bytes = await File(file).readAsBytes();
+      } else if (file is List<int>) {
+        bytes = Uint8List.fromList(file);
+      } else if (file is Uint8List) {
+        bytes = file;
+      } else if (file is File) {
+        bytes = await file.readAsBytes();
+      } else {
+        throw UnsupportedError('Unsupported file type: ${file.runtimeType}');
+      }
+
+      await _supabase.storage.from('images').uploadBinary(
+            filePath,
+            bytes,
+            fileOptions: FileOptions(contentType: 'image/jpeg'),
+          );
+
+      final publicUrl = _supabase.storage.from('images').getPublicUrl(filePath);
+
+      // Update user record
+      await updateUserProfile(uid, {'profileImageUrl': publicUrl});
+
+      return publicUrl;
+    } catch (e) {
+      debugPrint('[AuthService] uploadProfileImage failed: $e');
       return null;
     }
   }

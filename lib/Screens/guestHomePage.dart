@@ -232,7 +232,7 @@ class HomeContentPage extends StatelessWidget {
                               begin: Alignment.topCenter,
                               end: Alignment.bottomCenter,
                               colors: [
-                                Colors.black.withOpacity(0.4),
+                                Color.fromRGBO(0, 0, 0, 0.4),
                                 Colors.transparent,
                               ],
                             ),
@@ -256,7 +256,7 @@ class HomeContentPage extends StatelessWidget {
                                   'Trouvez votre logement idéal à n\importe où au Cameroun',
                                   style: TextStyle(
                                     fontSize: 18,
-                                    color: Colors.white.withOpacity(0.9),
+                                    color: Color.fromRGBO(255, 255, 255, 0.9),
                                   ),
                                 ),
                               ],
@@ -476,7 +476,7 @@ class _PropertyCardState extends State<PropertyCard> {
                             color: Theme.of(context)
                                 .colorScheme
                                 .primary
-                                .withOpacity(0.8), // Primaire MD3
+                                .withAlpha((0.8 * 255).round()), // Primaire MD3
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: const Text(
@@ -587,7 +587,7 @@ class _PropertyCardState extends State<PropertyCard> {
                                 color: Theme.of(context)
                                     .colorScheme
                                     .tertiary
-                                    .withOpacity(0.7),
+                                    .withAlpha((0.7 * 255).round()),
                                 size: 16,
                               );
                             }),

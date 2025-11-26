@@ -25,10 +25,10 @@ class MapPickerPage extends StatefulWidget {
   final double initialLng;
 
   const MapPickerPage({
-    Key? key,
+    super.key,
     this.initialLat = 3.8667,
     this.initialLng = 11.5167,
-  }) : super(key: key);
+  });
 
   @override
   State<MapPickerPage> createState() => _MapPickerPageState();
@@ -213,7 +213,7 @@ class _MapPickerPageState extends State<MapPickerPage> {
               color: Theme.of(context).scaffoldBackgroundColor,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Color.fromRGBO(0, 0, 0, 0.05),
                   blurRadius: 6,
                 )
               ],

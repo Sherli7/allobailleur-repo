@@ -144,4 +144,34 @@ class AuthProvider extends ChangeNotifier {
 
   /// Backwards-compatible alias used in some screens
   Future<bool> becomeHost() => promoteToOwner();
+
+  /// Upload and set a new profile image for the current user.
+  Future<bool> updateProfileImage(dynamic file) async {
+    final fb = _authService.currentUser;
+    if (fb == null) return false;
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+    try {
+      final url = await _authService.uploadProfileImage(file);
+      _isLoading = false;
+      if (url != null) {
+        final refreshed = await _authService.getUserData(fb.uid);
+        if (refreshed != null) {
+          _user = refreshed;
+          notifyListeners();
+          return true;
+        }
+        return false;
+      }
+      _errorMessage = 'Échec de l\'upload de l\'image';
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
 }

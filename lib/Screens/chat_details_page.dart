@@ -138,7 +138,7 @@ class _ChatDetailsPageState extends State<ChatDetailsPage> {
                 borderRadius: BorderRadius.circular(18),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Color.fromRGBO(0, 0, 0, 0.1),
                     blurRadius: 2,
                     offset: const Offset(0, 1),
                   ),

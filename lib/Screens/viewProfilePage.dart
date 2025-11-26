@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:rent_house/Providers/auth_provider.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:rent_house/Providers/property_provider.dart';
 import 'package:rent_house/Models/property.dart';
 import 'package:rent_house/Views/TextWidgets.dart';
@@ -25,8 +26,10 @@ class _MyViewProfilePageState extends State<ViewProfilePage> {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final user = authProvider.user;
       if (user != null) {
-        await Provider.of<PropertyProvider>(context, listen: false)
-            .loadHostProperties(user.uid);
+        // Capture provider before awaiting to avoid using BuildContext across async gaps
+        final propertyProvider =
+            Provider.of<PropertyProvider>(context, listen: false);
+        await propertyProvider.loadHostProperties(user.uid);
       }
       if (mounted) setState(() => _loadingProperties = false);
     });
@@ -68,12 +71,77 @@ class _MyViewProfilePageState extends State<ViewProfilePage> {
           children: [
             Row(
               children: [
-                CircleAvatar(
-                  radius: 48,
-                  backgroundImage: user.profileImageUrl.isNotEmpty
-                      ? NetworkImage(user.profileImageUrl)
-                      : const AssetImage('assets/images/default_profile.jpg')
-                          as ImageProvider,
+                // Avatar with edit button
+                Stack(
+                  children: [
+                    CircleAvatar(
+                      radius: 48,
+                      backgroundImage: user.profileImageUrl.isNotEmpty
+                          ? NetworkImage(user.profileImageUrl)
+                          : const AssetImage(
+                                  'assets/images/default_profile.jpg')
+                              as ImageProvider,
+                    ),
+                    Positioned(
+                      bottom: 0,
+                      right: 0,
+                      child: Material(
+                        color: Colors.transparent,
+                        child: InkWell(
+                          borderRadius: BorderRadius.circular(20),
+                          onTap: () async {
+                            // Capture navigator/messenger/providers before any await
+                            final messenger = ScaffoldMessenger.of(context);
+                            final navigator = Navigator.of(context);
+                            final authProv = Provider.of<AuthProvider>(context,
+                                listen: false);
+                            final picker = ImagePicker();
+
+                            final XFile? picked = await picker.pickImage(
+                              source: ImageSource.gallery,
+                              maxWidth: 1200,
+                              maxHeight: 1200,
+                              imageQuality: 85,
+                            );
+                            if (picked == null) return;
+
+                            // Show modal progress using the captured NavigatorState
+                            final loaderRoute = PageRouteBuilder<void>(
+                              opaque: false,
+                              pageBuilder: (_, __, ___) => const Center(
+                                child: CircularProgressIndicator(),
+                              ),
+                            );
+                            navigator.push(loaderRoute);
+
+                            final success =
+                                await authProv.updateProfileImage(picked);
+
+                            // Use captured navigator/messenger rather than context
+                            if (navigator.mounted) navigator.pop();
+
+                            messenger.showSnackBar(SnackBar(
+                                content: Text(success
+                                    ? 'Photo de profil mise à jour'
+                                    : 'Échec de l\'upload')));
+                          },
+                          child: Container(
+                            padding: const EdgeInsets.all(6),
+                            decoration: BoxDecoration(
+                              color:
+                                  Theme.of(context).colorScheme.surfaceVariant,
+                              shape: BoxShape.circle,
+                            ),
+                            child: Icon(
+                              Icons.edit,
+                              size: 18,
+                              color: Theme.of(context).colorScheme.onSurface,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(width: 16),
                 Expanded(
@@ -112,11 +180,13 @@ class _MyViewProfilePageState extends State<ViewProfilePage> {
             const SizedBox(height: 8),
             Consumer<PropertyProvider>(
               builder: (context, provider, child) {
-                if (_loadingProperties)
+                if (_loadingProperties) {
                   return const Center(child: CircularProgressIndicator());
+                }
                 final list = provider.userProperties ?? [];
-                if (list.isEmpty)
+                if (list.isEmpty) {
                   return const Text('Vous n\'avez pas d\'annonces.');
+                }
                 return ListView.builder(
                   shrinkWrap: true,
                   physics: const NeverScrollableScrollPhysics(),

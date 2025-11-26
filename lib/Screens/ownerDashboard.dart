@@ -45,14 +45,16 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
             final messenger = ScaffoldMessenger.of(context);
             if (value == 'mark_rented') {
               final ok = await provider.completeRental(p);
-              if (mounted)
+              if (mounted) {
                 messenger.showSnackBar(SnackBar(
                     content: Text(ok ? 'Annonce marquée louée' : "Échec")));
+              }
             } else if (value == 'restore') {
               final ok = await provider.restoreProperty(p);
-              if (mounted)
+              if (mounted) {
                 messenger.showSnackBar(SnackBar(
                     content: Text(ok ? 'Annonce remise en ligne' : "Échec")));
+              }
             } else if (value == 'delete') {
               final res = await provider.deleteProperty(p.id);
               if (res['success'] == true) {
@@ -60,18 +62,21 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
                 final uid = FirebaseAuth.instance.currentUser?.uid;
                 if (uid != null) await provider.loadHostProperties(uid);
                 await provider.fetchProperties();
-                if (mounted)
+                if (mounted) {
                   messenger.showSnackBar(
                       const SnackBar(content: Text('Annonce supprimée')));
+                }
               } else {
-                if (mounted)
+                if (mounted) {
                   messenger.showSnackBar(SnackBar(
                       content: Text('Erreur: ${res['message'] ?? ''}')));
+                }
               }
             } else if (value == 'edit') {
               // navigate to edit page if exists
-              if (mounted)
+              if (mounted) {
                 Navigator.of(context).pushNamed('/editProperty', arguments: p);
+              }
             }
           },
           itemBuilder: (context) => [

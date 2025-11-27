@@ -2,19 +2,19 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:rent_house/Services/AuthService.dart';
-import 'package:rent_house/Models/Users.dart' as AppUserModel;
+import 'package:rent_house/Models/Users.dart' as user_model;
 
 class AuthProvider extends ChangeNotifier {
   final AuthService _authService = AuthService();
 
-  AppUserModel.User? _user;
+  user_model.User? _user;
   bool _isLoading = false;
   String? _errorMessage;
 
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
 
-  AppUserModel.User? get user => _user;
+  user_model.User? get user => _user;
 
   firebase_auth.User? get firebaseUser => _authService.currentUser;
 

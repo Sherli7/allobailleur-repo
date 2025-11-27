@@ -5,7 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:image_picker/image_picker.dart';
 import 'package:rent_house/Services/google_sign_in_wrapper.dart';
-import 'package:rent_house/Models/Users.dart' as AppUserModel;
+import 'package:rent_house/Models/Users.dart' as user_model;
 
 class AuthService {
   final firebase_auth.FirebaseAuth _firebaseAuth =
@@ -51,7 +51,7 @@ class AuthService {
         return {'success': false, 'message': 'Échec de la création du compte.'};
       }
 
-      final appUser = AppUserModel.User(
+      final appUser = user_model.User(
         uid: user.uid,
         email: email,
         firstName: firstName,
@@ -110,7 +110,7 @@ class AuthService {
         final response =
             await _supabase.from('users').select().eq('uid', user.uid);
         if (response.isEmpty) {
-          await _supabase.from('users').insert(AppUserModel.User(
+          await _supabase.from('users').insert(user_model.User(
                 uid: user.uid,
                 email: user.email ?? '',
                 firstName: user.displayName?.split(' ').first ?? '',
@@ -176,11 +176,11 @@ class AuthService {
   }
 
   /// Récupérer les données utilisateur en tant que modèle
-  Future<AppUserModel.User?> getUserData(String uid) async {
+  Future<user_model.User?> getUserData(String uid) async {
     try {
       final response =
           await _supabase.from('users').select().eq('uid', uid).single();
-      return AppUserModel.User.fromJson(response);
+      return user_model.User.fromJson(response);
     } catch (e) {
       return null;
     }

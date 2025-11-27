@@ -5,6 +5,7 @@ import 'package:rent_house/Models/conversation.dart'; // Assume un modèle Conve
 import 'package:rent_house/Providers/messages_provider.dart'; // Provider for messages
 import 'package:rent_house/Screens/searchPage.dart'; // Pour bouton "Parcourir"
 import 'package:rent_house/Screens/chat_details_page.dart'; // À implémenter pour chat full (optionnel)
+import 'package:rent_house/Services/PaymentService.dart';
 
 class ConversationPage extends StatefulWidget {
   static const String routeName = '/messages';
@@ -160,16 +161,22 @@ class _ConversationPageState extends State<ConversationPage> {
               )
             : null,
         onTap: () {
-          // Nav vers chat details
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => ChatDetailsPage(conversation: conversation),
-            ),
-          );
-          // Marque comme lu via provider
-          Provider.of<MessagesProvider>(context, listen: false)
-              .markAsRead(conversation.id);
+          if (!conversation.isContactPaid) {
+            // Proposer le paiement
+            _showPaymentDialog(context, conversation);
+          } else {
+            // Nav vers chat details
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) =>
+                    ChatDetailsPage(conversation: conversation),
+              ),
+            );
+            // Marque comme lu via provider
+            Provider.of<MessagesProvider>(context, listen: false)
+                .markAsRead(conversation.id);
+          }
         },
       ),
     );
@@ -187,6 +194,62 @@ class _ConversationPageState extends State<ConversationPage> {
   List<Conversation> _filterConversations(String query) {
     // Implémente filtre local
     return []; // Stub
+  }
+
+  void _showPaymentDialog(BuildContext context, Conversation conversation) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Contacter le propriétaire'),
+          content: Text(
+            'Pour contacter ${conversation.otherUserName}, vous devez payer ${PaymentService.contactFee}€. Ce paiement est unique par conversation.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                // Capture les objets nécessaires avant l'appel asynchrone
+                final stateNavigator = Navigator.of(this.context);
+                final messagesProvider =
+                    Provider.of<MessagesProvider>(this.context, listen: false);
+                final scaffoldMessenger = ScaffoldMessenger.of(this.context);
+
+                // Close the dialog immediately using the state's navigator
+                stateNavigator.pop();
+                try {
+                  final paymentService = PaymentService();
+                  await paymentService.payForContact(conversation.id);
+
+                  if (!mounted) return;
+                  // Marquer comme payé (provider déjà capturé)
+                  await messagesProvider.markContactPaid(conversation.id);
+
+                  if (!mounted) return;
+                  // Ouvrir le chat
+                  stateNavigator.push(
+                    MaterialPageRoute(
+                      builder: (context) => ChatDetailsPage(
+                          conversation:
+                              conversation.copyWith(isContactPaid: true)),
+                    ),
+                  );
+                } catch (e) {
+                  if (!mounted) return;
+                  scaffoldMessenger.showSnackBar(
+                    SnackBar(content: Text('Erreur de paiement: $e')),
+                  );
+                }
+              },
+              child: const Text('Payer et contacter'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   @override

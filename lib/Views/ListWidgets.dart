@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:auto_size_text/auto_size_text.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
 import 'package:rent_house/Models/property.dart';
-import 'package:rent_house/Screens/viewProfilePage.dart';
+import 'package:rent_house/Screens/view_profile_page.dart';
 
 class ReviewListTitle extends StatefulWidget {
   const ReviewListTitle({super.key});
@@ -20,16 +20,13 @@ class ReviewListTitleState extends State<ReviewListTitle> {
           children: <Widget>[
             CircleAvatar(
               backgroundImage: const AssetImage('assets/images/sherli7.jpg'),
-              radius: MediaQuery.of(context).size.width /15,
+              radius: MediaQuery.of(context).size.width / 15,
             ),
             const Padding(
               padding: EdgeInsets.only(left: 15.0, right: 15.0),
               child: AutoSizeText(
-                  'Sherli7',
-                style: TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 20.0
-                ),
+                'Sherli7',
+                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 20.0),
               ),
             ),
             RatingBar.builder(
@@ -50,12 +47,10 @@ class ReviewListTitleState extends State<ReviewListTitle> {
           ],
         ),
         const Padding(
-          padding: EdgeInsets.only(top:5.0, bottom: 15.0),
+          padding: EdgeInsets.only(top: 5.0, bottom: 15.0),
           child: AutoSizeText(
             'Great guy, really enjoyed his time at this place, would definitely recommend him to other people.',
-            style: TextStyle(
-                fontSize: 18.0
-            ),
+            style: TextStyle(fontSize: 18.0),
           ),
         ),
       ],
@@ -63,58 +58,48 @@ class ReviewListTitleState extends State<ReviewListTitle> {
   }
 }
 
-class ConversationListTilePage extends StatefulWidget{
-
+class ConversationListTilePage extends StatefulWidget {
   const ConversationListTilePage({super.key});
-
 
   @override
   State<ConversationListTilePage> createState() => ConversationListTileState();
-
-
 }
 
-class ConversationListTileState extends State<ConversationListTilePage>{
-
+class ConversationListTileState extends State<ConversationListTilePage> {
   @override
   Widget build(BuildContext context) {
-   return ListTile(
-     leading: GestureDetector(
-       onTap: (){
-         Navigator.pushNamed(context, ViewProfilePage.routeName);
-       },
-       child: CircleAvatar(
-         radius: MediaQuery.of(context).size.width/14.0,
-         child: const Icon(Icons.person),
-       ),
-     ),
-     title: const Text(
-       'Lionel',
-       style: TextStyle(
-         fontSize: 22.5,
-         fontWeight: FontWeight.bold
-       ),
-     ),
-     subtitle: const Text(
-       'Hey, How\'s it going?',
-       style:TextStyle(
-           fontSize: 20.0,
-       ),
-     ),
-     trailing: const Text(
-       '30 Août',
-       style:TextStyle(
-         fontSize: 20.0,
-       ),
-     ),
-     contentPadding: const EdgeInsets.fromLTRB(25.0,15.0,25.0,15.0),
-   );
+    return ListTile(
+      leading: GestureDetector(
+        onTap: () {
+          Navigator.pushNamed(context, ViewProfilePage.routeName);
+        },
+        child: CircleAvatar(
+          radius: MediaQuery.of(context).size.width / 14.0,
+          child: const Icon(Icons.person),
+        ),
+      ),
+      title: const Text(
+        'Lionel',
+        style: TextStyle(fontSize: 22.5, fontWeight: FontWeight.bold),
+      ),
+      subtitle: const Text(
+        'Hey, How\'s it going?',
+        style: TextStyle(
+          fontSize: 20.0,
+        ),
+      ),
+      trailing: const Text(
+        '30 Août',
+        style: TextStyle(
+          fontSize: 20.0,
+        ),
+      ),
+      contentPadding: const EdgeInsets.fromLTRB(25.0, 15.0, 25.0, 15.0),
+    );
   }
-
 }
 
-
-class MessageListTile extends StatelessWidget{
+class MessageListTile extends StatelessWidget {
   const MessageListTile({super.key});
   @override
   Widget build(BuildContext context) {
@@ -171,7 +156,7 @@ class MessageListTile extends StatelessWidget{
     );*/
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(35,15,15,15),
+      padding: const EdgeInsets.fromLTRB(35, 15, 15, 15),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
@@ -208,21 +193,19 @@ class MessageListTile extends StatelessWidget{
             ),
           ),
           GestureDetector(
-            onTap: (){
-              Navigator.pushNamed(context,
-                  ViewProfilePage.routeName
-              );
+            onTap: () {
+              Navigator.pushNamed(context, ViewProfilePage.routeName);
             },
             child: CircleAvatar(
-              backgroundImage: const AssetImage('assets/images/defaultAvatar.jpg'),
-              radius: MediaQuery.of(context).size.width/20,
+              backgroundImage:
+                  const AssetImage('assets/images/defaultAvatar.jpg'),
+              radius: MediaQuery.of(context).size.width / 20,
             ),
           ),
         ],
       ),
     );
   }
-  
 }
 
 class PropertyListingTile extends StatelessWidget {

@@ -1,0 +1,1 @@
+export 'bookPostingPage.dart';

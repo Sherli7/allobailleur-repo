@@ -13,6 +13,7 @@ class User {
   final String? bio;
   final DateTime createdAt;
   final DateTime? updatedAt;
+  final bool hasActiveSubscription; // Pour les hôtes
 
   User({
     required this.uid,
@@ -27,6 +28,7 @@ class User {
     this.bio,
     required this.createdAt,
     this.updatedAt,
+    this.hasActiveSubscription = false,
   });
 
   String get fullName => '$firstName $lastName';
@@ -44,6 +46,7 @@ class User {
     String? bio,
     DateTime? createdAt,
     DateTime? updatedAt,
+    bool? hasActiveSubscription,
   }) {
     return User(
       uid: uid ?? this.uid,
@@ -58,6 +61,8 @@ class User {
       bio: bio ?? this.bio,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      hasActiveSubscription:
+          hasActiveSubscription ?? this.hasActiveSubscription,
     );
   }
 
@@ -75,6 +80,7 @@ class User {
       'bio': bio,
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
+      'hasActiveSubscription': hasActiveSubscription,
     };
   }
 
@@ -99,6 +105,7 @@ class User {
           : DateTime.now(),
       updatedAt:
           map['updatedAt'] != null ? DateTime.parse(map['updatedAt']) : null,
+      hasActiveSubscription: map['hasActiveSubscription'] ?? false,
     );
   }
 
@@ -107,12 +114,15 @@ class User {
   }
 
   // Alias for compatibility
-  factory User.fromFirestore(data) => User.fromJson(data);
+  factory User.fromFirestore(Map<String, dynamic> data) => User.fromJson(data);
 
   String toJsonString() => json.encode(toMap());
 
-  factory User.fromJsonString(String source) =>
-      User.fromMap(json.decode(source));
+  factory User.fromJsonString(String source) {
+    final Map<String, dynamic> map =
+        json.decode(source) as Map<String, dynamic>;
+    return User.fromMap(map);
+  }
 
   @override
   String toString() {

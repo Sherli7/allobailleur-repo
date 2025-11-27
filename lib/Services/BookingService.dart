@@ -4,11 +4,36 @@ import 'package:rent_house/Models/booking.dart';
 class BookingService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
+  // Commission de la plateforme (0% — paiements de location hors plateforme)
+  static const double platformCommissionRate = 0.0;
+
+  /// Calculer les frais de plateforme et le payout de l'hôte
+  static Map<String, double> calculateFees(double totalPrice) {
+    final platformFee = totalPrice * platformCommissionRate;
+    final hostPayout = totalPrice - platformFee;
+    return {
+      'platformFee': platformFee,
+      'hostPayout': hostPayout,
+    };
+  }
+
   /// Créer une nouvelle réservation
   Future<Map<String, dynamic>> createBooking(Booking booking) async {
     try {
-      final response =
-          await _supabase.from('bookings').insert(booking.toJson()).select();
+      // Calculer les frais si non fournis
+      final fees = calculateFees(booking.totalPrice);
+      final updatedBooking = booking.copyWith(
+        platformFee: booking.platformFee > 0
+            ? booking.platformFee
+            : fees['platformFee']!,
+        hostPayout:
+            booking.hostPayout > 0 ? booking.hostPayout : fees['hostPayout']!,
+      );
+
+      final response = await _supabase
+          .from('bookings')
+          .insert(updatedBooking.toJson())
+          .select();
       final bookingId = response[0]['id'];
 
       return {
@@ -34,7 +59,6 @@ class BookingService {
           .single();
       return Booking.fromJson(response);
     } catch (e) {
-      // Log error to a real logging service
       return null;
     }
   }
@@ -104,22 +128,39 @@ class BookingService {
       }
       return true;
     } catch (e) {
-      // Log error to a real logging service
       return false;
     }
   }
 
-  /// Mettre à jour une réservation
+  /// Mettre à jour le statut d'une réservation
+  Future<Map<String, dynamic>> updateBookingStatus(
+      String bookingId, String status) async {
+    try {
+      await _supabase.from('bookings').update({
+        'status': status,
+        'updated_at': DateTime.now().toIso8601String(),
+      }).eq('id', bookingId);
+
+      return {
+        'success': true,
+        'message': 'Statut mis à jour',
+      };
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Erreur: $e',
+      };
+    }
+  }
+
+  /// Mettre à jour une réservation (détails)
   Future<Map<String, dynamic>> updateBooking(
-    String bookingId,
-    Booking booking,
-  ) async {
+      String bookingId, Booking booking) async {
     try {
       await _supabase
           .from('bookings')
-          .update(booking.copyWith(updatedAt: DateTime.now()).toJson())
+          .update(booking.toJson())
           .eq('id', bookingId);
-
       return {
         'success': true,
         'message': 'Réservation mise à jour',
@@ -127,29 +168,14 @@ class BookingService {
     } catch (e) {
       return {
         'success': false,
-        'message': 'Erreur: $e',
+        'message': 'Erreur lors de la mise à jour: $e',
       };
     }
   }
 
   /// Annuler une réservation
   Future<Map<String, dynamic>> cancelBooking(String bookingId) async {
-    try {
-      await _supabase.from('bookings').update({
-        'status': 'cancelled',
-        'updated_at': DateTime.now().toIso8601String(),
-      }).eq('id', bookingId);
-
-      return {
-        'success': true,
-        'message': 'Réservation annulée',
-      };
-    } catch (e) {
-      return {
-        'success': false,
-        'message': 'Erreur: $e',
-      };
-    }
+    return await updateBookingStatus(bookingId, 'cancelled');
   }
 
   /// Confirmer une réservation

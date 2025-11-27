@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 
-import '../Models/AppConstants.dart';
+import '../Models/app_constants.dart';
 
-class CalendarMonthWidget extends StatefulWidget{
+class CalendarMonthWidget extends StatefulWidget {
   final int montIndex;
-  const CalendarMonthWidget({super.key,required this.montIndex});
+  const CalendarMonthWidget({super.key, required this.montIndex});
 
   @override
   State<CalendarMonthWidget> createState() => _CalendarMonthState();
-
 }
 
 class _CalendarMonthState extends State<CalendarMonthWidget> {
@@ -39,7 +38,8 @@ class _CalendarMonthState extends State<CalendarMonthWidget> {
       }
     }
     for (int i = 1; i <= daysInMonth; i++) {
-      _monthtile.add(MonthTile(date: DateTime(_currentYearInt, _currentMonthInt, i)));
+      _monthtile
+          .add(MonthTile(date: DateTime(_currentYearInt, _currentMonthInt, i)));
     }
   }
 
@@ -49,7 +49,8 @@ class _CalendarMonthState extends State<CalendarMonthWidget> {
       children: <Widget>[
         Padding(
           padding: const EdgeInsets.only(bottom: 20.0),
-          child: Text("${AppConstants.monthDict[_currentMonthInt]!} - $_currentYearInt"),
+          child: Text(
+              "${AppConstants.monthDict[_currentMonthInt]!} - $_currentYearInt"),
         ),
         GridView.builder(
           itemCount: _monthtile.length,

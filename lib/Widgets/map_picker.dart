@@ -40,7 +40,6 @@ class _MapPickerPageState extends State<MapPickerPage> {
   bool _isReverseLoading = false;
   String? _city;
   String? _displayName;
-  LatLng? _currentPosition;
   bool _isGettingPosition = false;
 
   @override
@@ -128,7 +127,6 @@ class _MapPickerPageState extends State<MapPickerPage> {
       }
       final latlng = LatLng(pos.latitude, pos.longitude);
       setState(() {
-        _currentPosition = latlng;
         _selected = latlng;
       });
       _mapController.move(latlng, 15.0);

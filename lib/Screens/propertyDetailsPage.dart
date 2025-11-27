@@ -6,6 +6,7 @@ import 'package:rent_house/Providers/auth_provider.dart' as app_auth;
 import 'package:rent_house/Screens/editPropertyPage.dart';
 import 'package:rent_house/Models/booking.dart';
 import 'package:rent_house/Providers/booking_provider.dart';
+// BookingService not required here since payments are off-platform
 
 class PropertyDetailsPage extends StatefulWidget {
   static const String routeName = '/propertyDetailsRoute';
@@ -291,6 +292,7 @@ class _BookingPageState extends State<BookingPage> {
       final nights = _checkOutDate!.difference(_checkInDate!).inDays;
       final property = widget.property; // capture widget values before awaits
       final totalPrice = nights > 0 ? property.price * nights : 0.0;
+      // Paiement des locations géré hors-plateforme. PlatformFee = 0.
 
       final bookingProvider =
           Provider.of<BookingProvider>(context, listen: false);
@@ -306,7 +308,11 @@ class _BookingPageState extends State<BookingPage> {
         checkInDate: _checkInDate!,
         checkOutDate: _checkOutDate!,
         totalPrice: totalPrice.toDouble(),
-        status: 'confirmed',
+        // Sur la plateforme, nous ne prenons pas de commission sur le montant
+        // de la location. platformFee = 0, hostPayout = totalPrice.
+        platformFee: 0.0,
+        hostPayout: totalPrice.toDouble(),
+        status: 'pending', // Statut pending — l'hôte confirmera la réservation
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
@@ -325,6 +331,8 @@ class _BookingPageState extends State<BookingPage> {
         return;
       }
 
+      // Pas de paiement via la plateforme pour la location —
+      // l'hôte et le client finalisent le paiement hors-plateforme.
       await propertyProvider.completeRental(property);
 
       if (mounted) {

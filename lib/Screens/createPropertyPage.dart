@@ -201,6 +201,14 @@ class _CreatePropertyPageState extends State<CreatePropertyPage> {
       return;
     }
 
+    // Vérifier l'abonnement de l'hôte avant publication
+    if (authProvider.user == null ||
+        !(authProvider.user?.hasActiveSubscription ?? false)) {
+      // Rediriger vers l'écran d'abonnement
+      Navigator.pushNamed(context, '/subscription');
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     final messenger = ScaffoldMessenger.of(context);

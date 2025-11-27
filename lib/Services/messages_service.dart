@@ -245,9 +245,11 @@ class MessagesService {
     }
   }
 
-  /// Supprime une conversation (soft delete)
-  Future<void> deleteConversation(String conversationId, String userId) async {
-    // Soft delete : remove de user's convos
-    await _getConversationsRef(userId).doc(conversationId).delete();
+  /// Marque une conversation comme lue pour un user
+  /// Marque le contact comme payé pour une conversation
+  Future<void> markContactPaid(String conversationId, String userId) async {
+    await _getConversationsRef(userId)
+        .doc(conversationId)
+        .update({'is_contact_paid': true});
   }
 }

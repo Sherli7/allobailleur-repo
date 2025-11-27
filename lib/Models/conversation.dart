@@ -5,6 +5,7 @@ class Conversation {
   final String lastMessage;
   final DateTime timestamp;
   final int unreadCount;
+  final bool isContactPaid; // Si le frais de contact a été payé
 
   Conversation({
     required this.id,
@@ -13,6 +14,7 @@ class Conversation {
     required this.lastMessage,
     required this.timestamp,
     required this.unreadCount,
+    this.isContactPaid = false,
   });
 
   /// Convertit l'instance en Map pour JSON
@@ -24,6 +26,7 @@ class Conversation {
       'last_message': lastMessage,
       'timestamp': timestamp.toIso8601String(),
       'unread_count': unreadCount,
+      'is_contact_paid': isContactPaid,
     };
   }
 
@@ -39,6 +42,7 @@ class Conversation {
           ? DateTime.parse(json['timestamp'])
           : DateTime.now(),
       unreadCount: json['unread_count'] as int? ?? 0,
+      isContactPaid: json['is_contact_paid'] as bool? ?? false,
     );
   }
 
@@ -50,6 +54,7 @@ class Conversation {
     String? lastMessage,
     DateTime? timestamp,
     int? unreadCount,
+    bool? isContactPaid,
   }) {
     return Conversation(
       id: id ?? this.id,
@@ -58,6 +63,7 @@ class Conversation {
       lastMessage: lastMessage ?? this.lastMessage,
       timestamp: timestamp ?? this.timestamp,
       unreadCount: unreadCount ?? this.unreadCount,
+      isContactPaid: isContactPaid ?? this.isContactPaid,
     );
   }
 }

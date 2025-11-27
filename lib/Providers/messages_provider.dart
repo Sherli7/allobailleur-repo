@@ -101,8 +101,8 @@ class MessagesProvider with ChangeNotifier {
     }
   }
 
-  /// Marque une conversation comme lue
-  Future<bool> markAsRead(String conversationId) async {
+  /// Marque une conversation comme contact payé
+  Future<bool> markContactPaid(String conversationId) async {
     if (FirebaseAuth.instance.currentUser == null) return false;
 
     _isLoading = true;
@@ -110,17 +110,42 @@ class MessagesProvider with ChangeNotifier {
 
     try {
       final userId = FirebaseAuth.instance.currentUser!.uid;
-      await _messagesService.markAsRead(conversationId, userId);
-      // Local update pour instantanéité
+      await _messagesService.markContactPaid(conversationId, userId);
+      // Local update
       final index = _conversations.indexWhere((c) => c.id == conversationId);
       if (index != -1) {
-        _conversations[index] = _conversations[index].copyWith(unreadCount: 0);
+        _conversations[index] =
+            _conversations[index].copyWith(isContactPaid: true);
         notifyListeners();
       }
       _isLoading = false;
       return true;
     } catch (e) {
-      _errorMessage = 'Erreur lors de la marque comme lu: $e';
+      _errorMessage = 'Erreur lors de la marque comme payé: $e';
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+  /// Marque une conversation comme lue (délégué au service)
+  Future<bool> markAsRead(String conversationId) async {
+    if (FirebaseAuth.instance.currentUser == null) return false;
+    _isLoading = true;
+    notifyListeners();
+    try {
+      final userId = FirebaseAuth.instance.currentUser!.uid;
+      await _messagesService.markAsRead(conversationId, userId);
+      // Local update: set unreadCount to 0 for this convo
+      final idx = _conversations.indexWhere((c) => c.id == conversationId);
+      if (idx != -1) {
+        _conversations[idx] = _conversations[idx].copyWith(unreadCount: 0);
+        notifyListeners();
+      }
+      _isLoading = false;
+      return true;
+    } catch (e) {
+      _errorMessage = 'Erreur lors du marquage comme lu: $e';
       _isLoading = false;
       notifyListeners();
       return false;

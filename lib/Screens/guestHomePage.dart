@@ -253,7 +253,7 @@ class HomeContentPage extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Trouvez votre logement idéal à n\importe où au Cameroun',
+                                  "Trouvez votre logement idéal à n'importe où au Cameroun",
                                   style: TextStyle(
                                     fontSize: 18,
                                     color: Color.fromRGBO(255, 255, 255, 0.9),
@@ -297,7 +297,6 @@ class HomeContentPage extends StatelessWidget {
 
                     const SizedBox(height: 16),
 
-                    // Grille des propriétés populaires (2 colonnes pour plus d'engagement)
                     if (properties.isEmpty)
                       Center(
                         child: Padding(
@@ -320,7 +319,7 @@ class HomeContentPage extends StatelessWidget {
                                     ?.copyWith(
                                       color: Theme.of(context)
                                           .colorScheme
-                                          .onSurfaceVariant,
+                                          .onSurface,
                                     ),
                               ),
                             ],
@@ -507,9 +506,7 @@ class _PropertyCardState extends State<PropertyCard> {
                                 shape: BoxShape.circle,
                                 color: _currentPage == index
                                     ? Theme.of(context).colorScheme.primary
-                                    : Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
+                                    : Theme.of(context).colorScheme.onSurface,
                               ),
                             ),
                           ),
@@ -539,9 +536,7 @@ class _PropertyCardState extends State<PropertyCard> {
                         children: [
                           Icon(Icons.location_on,
                               size: 16,
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant),
+                              color: Theme.of(context).colorScheme.onSurface),
                           Expanded(
                             child: Text(
                               '${widget.property.city}, ${widget.property.country}',
@@ -549,9 +544,8 @@ class _PropertyCardState extends State<PropertyCard> {
                                   .textTheme
                                   .bodyMedium
                                   ?.copyWith(
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onSurfaceVariant,
+                                    color:
+                                        Theme.of(context).colorScheme.onSurface,
                                   ),
                               overflow: TextOverflow.ellipsis,
                             ),
@@ -598,9 +592,7 @@ class _PropertyCardState extends State<PropertyCard> {
                       Text(
                         '${widget.property.surface ?? 0} m² • ${widget.property.bedrooms} ch',
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context)
-                                  .colorScheme
-                                  .onSurfaceVariant,
+                              color: Theme.of(context).colorScheme.onSurface,
                             ),
                       ),
                     ],

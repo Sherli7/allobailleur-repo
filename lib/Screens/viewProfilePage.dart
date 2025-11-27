@@ -4,8 +4,8 @@ import 'package:rent_house/Providers/auth_provider.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:rent_house/Providers/property_provider.dart';
 import 'package:rent_house/Models/property.dart';
-import 'package:rent_house/Views/TextWidgets.dart';
-import 'package:rent_house/Screens/ownerDashboard.dart';
+import 'package:rent_house/Views/text_widgets.dart';
+import 'package:rent_house/Screens/owner_dashboard.dart';
 
 class ViewProfilePage extends StatefulWidget {
   static const String routeName = '/viewProfilePageRoute';

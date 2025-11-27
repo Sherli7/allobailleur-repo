@@ -10,6 +10,7 @@ class BookingProvider with ChangeNotifier {
   List<Booking> _propertyBookings = [];
   bool _isLoading = false;
   String? _errorMessage;
+  String? _lastCreatedBookingId;
 
   // Getters
   List<Booking> get userBookings => _userBookings;
@@ -17,6 +18,7 @@ class BookingProvider with ChangeNotifier {
   List<Booking> get propertyBookings => _propertyBookings;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
+  String? get lastCreatedBookingId => _lastCreatedBookingId;
 
   /// Créer une réservation
   Future<bool> createBooking(Booking booking) async {
@@ -30,6 +32,7 @@ class BookingProvider with ChangeNotifier {
     if (!result['success']) {
       _errorMessage = result['message'];
     } else {
+      _lastCreatedBookingId = result['bookingId'];
       _userBookings.add(booking.copyWith(id: result['bookingId']));
     }
     notifyListeners();
@@ -183,6 +186,23 @@ class BookingProvider with ChangeNotifier {
     } else {
       _userBookings.removeWhere((b) => b.id == bookingId);
       _hostBookings.removeWhere((b) => b.id == bookingId);
+    }
+    notifyListeners();
+
+    return result['success'];
+  }
+
+  /// Mettre à jour le statut d'une réservation
+  Future<bool> updateBookingStatus(String bookingId, String status) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    final result = await _bookingService.updateBookingStatus(bookingId, status);
+
+    _isLoading = false;
+    if (!result['success']) {
+      _errorMessage = result['message'];
     }
     notifyListeners();
 

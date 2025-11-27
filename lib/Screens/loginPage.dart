@@ -250,12 +250,14 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                                   .onUserInteraction,
                                               validator: (value) {
                                                 if (value == null ||
-                                                    value.isEmpty)
+                                                    value.isEmpty) {
                                                   return 'Email requis';
+                                                }
                                                 if (!RegExp(
                                                         r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                                                    .hasMatch(value))
+                                                    .hasMatch(value)) {
                                                   return 'Email invalide';
+                                                }
                                                 return null;
                                               },
                                               decoration: InputDecoration(
@@ -319,10 +321,12 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                                   .onUserInteraction,
                                               validator: (value) {
                                                 if (value == null ||
-                                                    value.isEmpty)
+                                                    value.isEmpty) {
                                                   return 'Mot de passe requis';
-                                                if (value.length < 6)
+                                                }
+                                                if (value.length < 6) {
                                                   return 'Min 6 caractères';
+                                                }
                                                 return null;
                                               },
                                               decoration: InputDecoration(

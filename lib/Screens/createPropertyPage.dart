@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:rent_house/Models/property.dart';
 import 'package:rent_house/Providers/auth_provider.dart' as app_auth;
@@ -1160,10 +1160,27 @@ class _CreatePropertyPageState extends State<CreatePropertyPage> {
                                 );
                               },
                             )
-                          : Image.file(
-                              File(_selectedImages[index].path),
-                              fit: BoxFit.cover,
-                              errorBuilder: (context, error, stackTrace) {
+                          : FutureBuilder<Uint8List?>(
+                              future: _selectedImages[index].readAsBytes(),
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState ==
+                                    ConnectionState.waiting) {
+                                  return const Center(
+                                      child: CircularProgressIndicator());
+                                }
+                                if (snapshot.hasData && snapshot.data != null) {
+                                  return Image.memory(
+                                    snapshot.data!,
+                                    fit: BoxFit.cover,
+                                    errorBuilder: (context, error, stackTrace) {
+                                      return Container(
+                                        color: Colors.grey[300],
+                                        child: const Icon(Icons.broken_image,
+                                            size: 50),
+                                      );
+                                    },
+                                  );
+                                }
                                 return Container(
                                   color: Colors.grey[300],
                                   child:

@@ -4,11 +4,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:rent_house/Screens/searchPage.dart';
 import 'package:rent_house/Screens/favoritesPage.dart';
 import 'package:rent_house/Screens/createPropertyPage.dart';
-import 'package:rent_house/Screens/conversationPage.dart';
+import 'package:rent_house/Screens/conversation_page.dart';
 import 'package:rent_house/Screens/viewProfilePage.dart';
 import 'package:rent_house/Screens/propertyDetailsPage.dart';
 import 'package:rent_house/Providers/property_provider.dart';
 import 'package:rent_house/Models/property.dart';
+import 'dart:math';
+import 'package:geolocator/geolocator.dart';
+import 'package:share_plus/share_plus.dart';
 
 class GuestHomePage extends StatefulWidget {
   static const String routeName = '/home';
@@ -23,7 +26,7 @@ class _GuestHomePageState extends State<GuestHomePage> {
   late final List<Widget> _pages;
   // Navigator keys for nested navigators (one per tab)
   final List<GlobalKey<NavigatorState>> _navigatorKeys =
-      List.generate(6, (index) => GlobalKey<NavigatorState>());
+      List.generate(4, (index) => GlobalKey<NavigatorState>());
 
   @override
   void initState() {
@@ -32,8 +35,6 @@ class _GuestHomePageState extends State<GuestHomePage> {
       const HomeContentPage(), // Page d'accueil dynamique
       const SearchPage(),
       const FavoritesPage(),
-      const CreatePropertyPage(),
-      const ConversationPage(),
       const ViewProfilePage(),
     ];
     // Load initial data
@@ -49,6 +50,25 @@ class _GuestHomePageState extends State<GuestHomePage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: const Text('Allô Bailleur'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: () {
+              Navigator.pushNamed(context, CreatePropertyPage.routeName);
+            },
+            tooltip: 'Publier une annonce',
+          ),
+          IconButton(
+            icon: const Icon(Icons.chat_bubble_outline),
+            onPressed: () {
+              Navigator.pushNamed(context, ConversationPage.routeName);
+            },
+            tooltip: 'Messages',
+          ),
+        ],
+      ),
       // Use nested navigators so routes pushed inside a tab keep the bottom bar
       body: Stack(
         children: List.generate(_pages.length, (index) {
@@ -121,14 +141,6 @@ class _GuestHomePageState extends State<GuestHomePage> {
             label: 'Favoris',
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.add),
-            label: 'Publier',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.chat_bubble_outline),
-            label: 'Messages',
-          ),
-          BottomNavigationBarItem(
             icon: Icon(Icons.person),
             label: 'Profil',
           ),
@@ -138,8 +150,85 @@ class _GuestHomePageState extends State<GuestHomePage> {
   }
 }
 
-class HomeContentPage extends StatelessWidget {
+class HomeContentPage extends StatefulWidget {
   const HomeContentPage({super.key});
+
+  @override
+  State<HomeContentPage> createState() => _HomeContentPageState();
+}
+
+class _HomeContentPageState extends State<HomeContentPage> {
+  double? _userLat;
+  double? _userLng;
+
+  @override
+  void initState() {
+    super.initState();
+    _getUserLocation();
+  }
+
+  Future<void> _getUserLocation() async {
+    try {
+      bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
+      if (!serviceEnabled) {
+        // Location services are not enabled
+        return;
+      }
+
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied) {
+          // Permissions are denied
+          return;
+        }
+      }
+
+      if (permission == LocationPermission.deniedForever) {
+        // Permissions are denied forever
+        return;
+      }
+
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      setState(() {
+        _userLat = position.latitude;
+        _userLng = position.longitude;
+      });
+    } catch (e) {
+      // Handle error
+      debugPrint('Error getting location: $e');
+    }
+  }
+
+  double _calculateDistance(
+      double lat1, double lng1, double lat2, double lng2) {
+    const double earthRadius = 6371; // km
+    final double dLat = (lat2 - lat1) * (pi / 180);
+    final double dLng = (lng2 - lng1) * (pi / 180);
+    final double a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(lat1 * pi / 180) *
+            cos(lat2 * pi / 180) *
+            sin(dLng / 2) *
+            sin(dLng / 2);
+    final double c = 2 * atan2(sqrt(a), sqrt(1 - a));
+    return earthRadius * c;
+  }
+
+  List<Property> _sortPropertiesByDistance(List<Property> properties) {
+    if (_userLat == null || _userLng == null) return properties;
+    final sorted = List<Property>.from(properties);
+    sorted.sort((a, b) {
+      final distA =
+          _calculateDistance(_userLat!, _userLng!, a.latitude, a.longitude);
+      final distB =
+          _calculateDistance(_userLat!, _userLng!, b.latitude, b.longitude);
+      return distA.compareTo(distB);
+    });
+    return sorted;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -188,6 +277,7 @@ class HomeContentPage extends StatelessWidget {
           }
 
           final properties = propertyProvider.properties ?? [];
+          final sortedProperties = _sortPropertiesByDistance(properties);
 
           return Container(
             color: Theme.of(context)
@@ -200,7 +290,10 @@ class HomeContentPage extends StatelessWidget {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const SizedBox(height: 100), // Espace pour AppBar hero
+                    SizedBox(
+                        height: MediaQuery.of(context).padding.top +
+                            kToolbarHeight +
+                            24), // Espace pour AppBar étendue + padding confortable
 
                     // Section de bienvenue avec hero image overlay
                     Hero(
@@ -253,7 +346,7 @@ class HomeContentPage extends StatelessWidget {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  "Trouvez votre logement idéal à n'importe où au Cameroun",
+                                  "Trouvez votre logement idéal n'importe où au Cameroun",
                                   style: TextStyle(
                                     fontSize: 18,
                                     color: Color.fromRGBO(255, 255, 255, 0.9),
@@ -276,7 +369,7 @@ class HomeContentPage extends StatelessWidget {
                       children: [
                         Expanded(
                           child: Text(
-                            'Propriétés populaires',
+                            'Retrouvez les locations les plus proches de vous...',
                             style: Theme.of(context)
                                 .textTheme
                                 .headlineSmall, // Style MD3
@@ -297,7 +390,7 @@ class HomeContentPage extends StatelessWidget {
 
                     const SizedBox(height: 16),
 
-                    if (properties.isEmpty)
+                    if (sortedProperties.isEmpty)
                       Center(
                         child: Padding(
                           padding: const EdgeInsets.all(32),
@@ -333,17 +426,17 @@ class HomeContentPage extends StatelessWidget {
                         gridDelegate:
                             const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
-                          // Reduce ratio to make tiles slightly taller and avoid tight vertical constraints
-                          childAspectRatio: 0.66,
-                          crossAxisSpacing: 12,
-                          mainAxisSpacing: 12,
+                          // Améliorer le ratio pour de meilleures proportions
+                          childAspectRatio: 0.75,
+                          crossAxisSpacing: 16,
+                          mainAxisSpacing: 16,
                         ),
-                        itemCount: properties.length > 4
+                        itemCount: sortedProperties.length > 4
                             ? 4
-                            : properties
+                            : sortedProperties
                                 .length, // Augmenté à 4 pour plus de contenu
                         itemBuilder: (context, index) {
-                          final property = properties[index];
+                          final property = sortedProperties[index];
                           return PropertyCard(
                               property:
                                   property); // Utilise le nouveau widget avec slider
@@ -390,6 +483,40 @@ class _PropertyCardState extends State<PropertyCard> {
     super.dispose();
   }
 
+  Future<void> _shareProperty() async {
+    try {
+      final property = widget.property;
+      // Créer un lien partageable (deep link ou lien web)
+      final propertyLink = 'https://allobailleur.app/property/${property.id}';
+
+      final shareText = '''
+🏠 ${property.title}
+
+📍 ${property.city}, ${property.district ?? property.country}
+💰 ${property.price.toStringAsFixed(0)} FCFA/mois
+🏠 ${property.bedrooms} ch. • 🛁 ${property.bathrooms} sdb • 📐 ${property.surface?.toInt() ?? 0} m²
+
+🔗 Voir l'annonce complète : $propertyLink
+
+Découvrez cette propriété sur Allô Bailleur !
+#AlloBailleur #Location #${property.city}
+      '''
+          .trim();
+
+      await Share.share(
+        shareText,
+        subject: 'Découvrez cette propriété : ${property.title}',
+      );
+    } catch (e) {
+      debugPrint('Erreur lors du partage: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Erreur lors du partage')),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final imageUrls = widget.property.imageUrls;
@@ -416,7 +543,7 @@ class _PropertyCardState extends State<PropertyCard> {
             children: [
               // Slider d'images avec indicateurs
               SizedBox(
-                height: 120,
+                height: 140, // Augmenté pour de meilleures proportions
                 child: Stack(
                   children: [
                     // PageView pour le slider
@@ -442,7 +569,7 @@ class _PropertyCardState extends State<PropertyCard> {
                             child: const Icon(
                               Icons.image_not_supported,
                               color: Colors.grey,
-                              size: 40,
+                              size: 48, // Agrandi l'icône
                             ),
                           );
                         }
@@ -516,84 +643,147 @@ class _PropertyCardState extends State<PropertyCard> {
                 ),
               ),
               // Infos avec rating
-              Flexible(
-                fit: FlexFit.loose,
+              Expanded(
                 child: Padding(
-                  padding: const EdgeInsets.all(12),
+                  padding: const EdgeInsets.all(16), // Augmenté le padding
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
                     children: [
+                      // Titre de la propriété
                       Text(
                         widget.property.title,
-                        style: Theme.of(context)
-                            .textTheme
-                            .titleMedium, // Title MD3
-                        maxLines: 1,
+                        style:
+                            Theme.of(context).textTheme.titleMedium?.copyWith(
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.2,
+                                ),
+                        maxLines: 2, // Permettre 2 lignes pour le titre
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 8),
+
+                      // Localisation
                       Row(
                         children: [
                           Icon(Icons.location_on,
                               size: 16,
-                              color: Theme.of(context).colorScheme.onSurface),
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .onSurfaceVariant),
+                          const SizedBox(width: 4),
                           Expanded(
                             child: Text(
                               '${widget.property.city}, ${widget.property.country}',
                               style: Theme.of(context)
                                   .textTheme
-                                  .bodyMedium
+                                  .bodySmall
                                   ?.copyWith(
-                                    color:
-                                        Theme.of(context).colorScheme.onSurface,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                    height: 1.3,
                                   ),
+                              maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 8),
+
+                      // Prix et rating
                       Row(
                         children: [
                           Expanded(
                             child: Text(
-                              '${widget.property.price} FCFA/mois',
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                              '${widget.property.price.toStringAsFixed(0)} FCFA/mois',
                               style: Theme.of(context)
                                   .textTheme
-                                  .titleMedium
+                                  .titleSmall
                                   ?.copyWith(
                                     color:
                                         Theme.of(context).colorScheme.primary,
                                     fontWeight: FontWeight.bold,
                                   ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                             ),
                           ),
                           const SizedBox(width: 8),
+                          // Rating avec étoiles et bouton partage
                           Row(
                             mainAxisSize: MainAxisSize.min,
-                            children: List.generate(5, (starIndex) {
-                              final isFilled =
-                                  starIndex < widget.property.rating.floor();
-                              return Icon(
-                                isFilled ? Icons.star : Icons.star_border,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .tertiary
-                                    .withAlpha((0.7 * 255).round()),
+                            children: [
+                              const Icon(
+                                Icons.star,
+                                color: Colors.amber,
                                 size: 16,
-                              );
-                            }),
+                              ),
+                              const SizedBox(width: 2),
+                              Text(
+                                widget.property.rating.toStringAsFixed(1),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w500,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSurface,
+                                    ),
+                              ),
+                              const SizedBox(width: 8),
+                              InkWell(
+                                onTap: _shareProperty,
+                                borderRadius: BorderRadius.circular(12),
+                                child: Container(
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .surface
+                                        .withOpacity(0.8),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Icon(
+                                    Icons.share,
+                                    size: 16,
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ],
                       ),
-                      const SizedBox(height: 4),
-                      Text(
-                        '${widget.property.surface ?? 0} m² • ${widget.property.bedrooms} ch',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurface,
-                            ),
+                      const SizedBox(height: 8),
+
+                      // Caractéristiques (surface, chambres)
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context)
+                              .colorScheme
+                              .surfaceContainerHighest
+                              .withOpacity(0.5),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${widget.property.surface ?? 0} m² • ${widget.property.bedrooms} ch • ${widget.property.bathrooms} sdb',
+                          style:
+                              Theme.of(context).textTheme.bodySmall?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .onSurfaceVariant,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
                     ],
                   ),

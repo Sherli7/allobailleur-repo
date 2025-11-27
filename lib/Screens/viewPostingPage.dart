@@ -5,8 +5,8 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:rent_house/Models/property.dart';
 import 'package:rent_house/Screens/BookPostingPage.dart';
-import 'package:rent_house/Views/ListWidgets.dart';
-import 'package:rent_house/Views/TextWidgets.dart';
+import 'package:rent_house/Views/list_widgets.dart';
+import 'package:rent_house/Views/text_widgets.dart';
 import 'package:rent_house/Views/formWidgets.dart';
 
 class ViewPostingPage extends StatefulWidget {
@@ -48,7 +48,10 @@ class _MyViewPostingPageState extends State<ViewPostingPage> {
         actions: <Widget>[
           IconButton(
               onPressed: () {},
-              icon: const Icon(Icons.save, color: Colors.white,))
+              icon: const Icon(
+                Icons.save,
+                color: Colors.white,
+              ))
         ],
       ),
       body: SingleChildScrollView(
@@ -57,7 +60,9 @@ class _MyViewPostingPageState extends State<ViewPostingPage> {
             AspectRatio(
               aspectRatio: 3 / 2,
               child: PageView.builder(
-                itemCount: widget.property.imageUrls.isEmpty ? 1 : widget.property.imageUrls.length,
+                itemCount: widget.property.imageUrls.isEmpty
+                    ? 1
+                    : widget.property.imageUrls.length,
                 itemBuilder: (context, index) {
                   if (widget.property.imageUrls.isEmpty) {
                     return const Image(
@@ -157,8 +162,8 @@ class _MyViewPostingPageState extends State<ViewPostingPage> {
                   ),
                   const Text(
                     'Amenities',
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 25.0),
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 25.0),
                   ),
                   Padding(
                     padding: const EdgeInsets.only(top: 25.0, bottom: 25.0),
@@ -176,8 +181,8 @@ class _MyViewPostingPageState extends State<ViewPostingPage> {
                   ),
                   const Text(
                     'The Location',
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 25.0),
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 25.0),
                   ),
                   Padding(
                     padding: const EdgeInsets.only(top: 25.0, bottom: 25.0),
@@ -211,8 +216,8 @@ class _MyViewPostingPageState extends State<ViewPostingPage> {
                   ),
                   const Text(
                     'Reviews',
-                    style: TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 25.0),
+                    style:
+                        TextStyle(fontWeight: FontWeight.bold, fontSize: 25.0),
                   ),
                   const Padding(
                     padding: EdgeInsets.only(top: 20.0),
@@ -225,8 +230,8 @@ class _MyViewPostingPageState extends State<ViewPostingPage> {
                       shrinkWrap: true,
                       itemBuilder: (context, index) {
                         return Padding(
-                          padding: const EdgeInsets.only(
-                              top: 10.0, bottom: 10.0),
+                          padding:
+                              const EdgeInsets.only(top: 10.0, bottom: 10.0),
                           child: ReviewListTitle(key: UniqueKey()),
                         ); // Adjust this according to how ReviewListTitle is defined
                       },

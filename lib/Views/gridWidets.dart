@@ -2,7 +2,7 @@ import 'package:auto_size_text/auto_size_text.dart';
 // Pour debugPrint
 import 'package:flutter/material.dart';
 import 'package:flutter_rating_bar/flutter_rating_bar.dart';
-import 'package:rent_house/Models/app_constants.dart';
+import 'package:rent_house/Models/AppConstants.dart';
 
 class PostingGridTile extends StatefulWidget {
   final String title;

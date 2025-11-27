@@ -174,4 +174,51 @@ class AuthProvider extends ChangeNotifier {
       return false;
     }
   }
+
+  /// Update user profile information
+  Future<bool> updateUserProfile({
+    String? fullName,
+    String? email,
+    String? city,
+    String? country,
+    String? bio,
+  }) async {
+    final fb = _authService.currentUser;
+    if (fb == null) return false;
+
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
+    try {
+      final updateData = <String, dynamic>{};
+      if (fullName != null) updateData['fullName'] = fullName;
+      if (email != null) updateData['email'] = email;
+      if (city != null) updateData['city'] = city;
+      if (country != null) updateData['country'] = country;
+      if (bio != null) updateData['bio'] = bio;
+
+      final result = await _authService.updateUserProfile(fb.uid, updateData);
+      _isLoading = false;
+
+      if (result.contains('succès')) {
+        // Refresh user data
+        final refreshed = await _authService.getUserData(fb.uid);
+        if (refreshed != null) {
+          _user = refreshed;
+          notifyListeners();
+          return true;
+        }
+      }
+
+      _errorMessage = result;
+      notifyListeners();
+      return false;
+    } catch (e) {
+      _isLoading = false;
+      _errorMessage = e.toString();
+      notifyListeners();
+      return false;
+    }
+  }
 }

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:image_picker/image_picker.dart';
-import 'dart:io';
+import 'dart:typed_data';
 import 'package:rent_house/Models/property.dart';
 import 'package:rent_house/Providers/property_provider.dart';
 
@@ -444,9 +444,22 @@ class _EditPropertyPageState extends State<EditPropertyPage> {
                       isExisting
                           ? Image.network(img['url'] as String,
                               fit: BoxFit.cover)
-                          : Image.file(
-                              File((img['xfile'] as XFile).path),
-                              fit: BoxFit.cover,
+                          : FutureBuilder<Uint8List?>(
+                              future: (img['xfile'] as XFile).readAsBytes(),
+                              builder: (context, snapshot) {
+                                if (snapshot.connectionState ==
+                                    ConnectionState.waiting) {
+                                  return const Center(
+                                      child: CircularProgressIndicator());
+                                }
+                                if (snapshot.hasData && snapshot.data != null) {
+                                  return Image.memory(
+                                    snapshot.data!,
+                                    fit: BoxFit.cover,
+                                  );
+                                }
+                                return const Center(child: Icon(Icons.error));
+                              },
                             ),
 
                       // Progress overlay for uploading new images

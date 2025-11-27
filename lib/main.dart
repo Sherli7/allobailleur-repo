@@ -28,7 +28,9 @@ import 'package:rent_house/Providers/booking_provider.dart';
 import 'package:rent_house/Providers/messages_provider.dart';
 import 'package:rent_house/firebase_options.dart';
 
-import 'Screens/conversationPage.dart';
+import 'package:rent_house/theme/app_theme.dart';
+
+import 'Screens/conversation_page.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -64,11 +66,9 @@ class MyApp extends StatelessWidget {
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
-        title: 'Flutter Demo',
-        theme: ThemeData(
-          colorScheme: ColorScheme.fromSeed(seedColor: Colors.lightGreenAccent),
-          useMaterial3: true,
-        ),
+        title: 'Allô Bailleur',
+        theme: AppTheme.lightTheme,
+        darkTheme: AppTheme.darkTheme,
         home: const AuthWrapper(),
         routes: {
           SignUpPage.routeName: (context) => const SignUpPage(),

@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 // Removed google_fonts and local_auth to avoid extra dependencies
 // import 'package:google_fonts/google_fonts.dart'; // Ajoutez ce package
 import 'dart:ui' show ImageFilter;
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:rent_house/Screens/guestHomePage.dart';
 import 'package:rent_house/Providers/auth_provider.dart' as app_auth;
 
@@ -522,8 +523,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                               width: double.infinity,
                                               height: 56,
                                               child: OutlinedButton.icon(
-                                                icon: Image.asset(
-                                                  'assets/images/logo.png',
+                                                icon: SvgPicture.asset(
+                                                  'assets/images/logo.svg',
                                                   width: 20,
                                                   height: 20,
                                                 ),

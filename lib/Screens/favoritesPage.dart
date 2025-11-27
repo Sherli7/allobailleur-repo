@@ -4,7 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:rent_house/Models/property.dart';
 import 'package:rent_house/Providers/property_provider.dart';
 import 'package:rent_house/Screens/propertyDetailsPage.dart';
-import 'package:rent_house/Screens/conversationPage.dart'; // Pour contacter proprio
+import 'package:rent_house/Screens/conversation_page.dart'; // Pour contacter proprio
 import 'package:rent_house/Screens/searchPage.dart';
 
 class FavoritesPage extends StatefulWidget {

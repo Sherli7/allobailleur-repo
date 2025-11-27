@@ -6,7 +6,7 @@ import 'package:rent_house/Models/AppConstants.dart';
 import 'package:rent_house/Providers/auth_provider.dart' as app_auth;
 import 'package:rent_house/Screens/guestHomePage.dart';
 import 'package:rent_house/Screens/loginPage.dart';
-import 'package:rent_house/Views/TextWidgets.dart';
+import 'package:rent_house/Views/text_widgets.dart';
 
 class SignUpPage extends StatefulWidget {
   static const String routeName = '/signUpPageRoute';

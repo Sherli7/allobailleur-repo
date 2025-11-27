@@ -1,19 +1,17 @@
 import 'package:flutter/material.dart';
-import 'package:rent_house/Views/TextWidgets.dart';
-import 'package:rent_house/Views/calendarWidgets.dart';
+import 'package:rent_house/Views/text_widgets.dart';
+import 'package:rent_house/Views/calendar_widgets.dart';
 
 class BookPostingPage extends StatefulWidget {
   static const String routeName = '/bookPostingPageRoute';
 
   const BookPostingPage({super.key});
 
-
   @override
   State<BookPostingPage> createState() => _MyBookPostingPageState();
 }
 
 class _MyBookPostingPageState extends State<BookPostingPage> {
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -21,16 +19,15 @@ class _MyBookPostingPageState extends State<BookPostingPage> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         title: AppBarText(key: UniqueKey(), text: 'Book a Posting'),
       ),
-      body:Padding(
-        padding: const EdgeInsets.fromLTRB(25, 25,25, 0),
+      body: Padding(
+        padding: const EdgeInsets.fromLTRB(25, 25, 25, 0),
         child: Column(
-
           mainAxisAlignment: MainAxisAlignment.spaceEvenly,
           children: <Widget>[
             const Row(
               mainAxisSize: MainAxisSize.max,
               mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: <Widget> [
+              children: <Widget>[
                 Text('Sun'),
                 Text('Mon'),
                 Text('Tues'),
@@ -41,20 +38,20 @@ class _MyBookPostingPageState extends State<BookPostingPage> {
               ],
             ),
             SizedBox(
-              height: MediaQuery.of(context).size.height/1.8,
+              height: MediaQuery.of(context).size.height / 1.8,
               child: PageView.builder(
                 itemCount: 12,
-                itemBuilder: (context,index){
-                  return CalendarMonthWidget(montIndex: index,);
+                itemBuilder: (context, index) {
+                  return CalendarMonthWidget(
+                    montIndex: index,
+                  );
                 },
               ),
             ),
             MaterialButton(
-              onPressed: (){
-
-              },
+              onPressed: () {},
               minWidth: double.infinity,
-              height: MediaQuery.of(context).size.height/14,
+              height: MediaQuery.of(context).size.height / 14,
               color: Colors.greenAccent,
               child: const Text('Book Now!'),
             ),

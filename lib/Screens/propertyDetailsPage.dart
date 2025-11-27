@@ -6,6 +6,7 @@ import 'package:rent_house/Providers/auth_provider.dart' as app_auth;
 import 'package:rent_house/Screens/editPropertyPage.dart';
 import 'package:rent_house/Models/booking.dart';
 import 'package:rent_house/Providers/booking_provider.dart';
+import 'package:share_plus/share_plus.dart';
 // BookingService not required here since payments are off-platform
 
 class PropertyDetailsPage extends StatefulWidget {
@@ -62,6 +63,42 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
     }
   }
 
+  Future<void> _shareProperty() async {
+    try {
+      final property = widget.property;
+      // Créer un lien partageable (deep link ou lien web)
+      final propertyLink = 'https://allobailleur.app/property/${property.id}';
+
+      final shareText = '''
+🏠 ${property.title}
+
+📍 ${property.city}, ${property.district ?? property.country}
+💰 ${property.price.toStringAsFixed(0)} ${property.currency}/mois
+🏠 ${property.bedrooms} ch. • 🛁 ${property.bathrooms} sdb • 📐 ${property.surface?.toInt() ?? 0} m²
+
+${property.description}
+
+🔗 Voir l'annonce complète : $propertyLink
+
+Découvrez cette propriété sur Allô Bailleur !
+#AlloBailleur #Location #${property.city}
+      '''
+          .trim();
+
+      await Share.share(
+        shareText,
+        subject: 'Découvrez cette propriété : ${property.title}',
+      );
+    } catch (e) {
+      debugPrint('Erreur lors du partage: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Erreur lors du partage')),
+        );
+      }
+    }
+  }
+
   Widget _featureChip(IconData icon, String label) {
     return Card(
       child: Padding(
@@ -112,11 +149,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
           ),
           IconButton(
             icon: const Icon(Icons.share),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Partager la propriété')),
-              );
-            },
+            onPressed: _shareProperty,
           ),
         ],
       ),

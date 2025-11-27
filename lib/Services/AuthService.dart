@@ -4,6 +4,7 @@ import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:rent_house/Services/google_sign_in_wrapper.dart';
 import 'package:rent_house/Models/Users.dart' as user_model;
 
@@ -190,6 +191,7 @@ class AuthService {
   /// Accepts a File, XFile or Uint8List and stores it in Supabase Storage
   /// under `profiles/<uid>/<timestamp>.jpg`, then updates the user's
   /// `profileImageUrl` in the `users` table and returns the public URL.
+  /// Images are automatically compressed and resized for optimal performance.
   Future<String?> uploadProfileImage(dynamic file) async {
     try {
       final user = _firebaseAuth.currentUser;
@@ -215,6 +217,11 @@ class AuthService {
         throw UnsupportedError('Unsupported file type: ${file.runtimeType}');
       }
 
+      // Compresser et redimensionner l'image pour optimiser les performances
+      debugPrint('[AuthService] Original image size: ${bytes.length} bytes');
+      bytes = await _compressImage(bytes);
+      debugPrint('[AuthService] Compressed image size: ${bytes.length} bytes');
+
       await _supabase.storage.from('images').uploadBinary(
             filePath,
             bytes,
@@ -230,6 +237,47 @@ class AuthService {
     } catch (e) {
       debugPrint('[AuthService] uploadProfileImage failed: $e');
       return null;
+    }
+  }
+
+  /// Compress and resize image for optimal storage and loading performance
+  Future<Uint8List> _compressImage(Uint8List bytes) async {
+    try {
+      // Compresser l'image avec flutter_image_compress
+      final compressedBytes = await FlutterImageCompress.compressWithList(
+        bytes,
+        minWidth: 800, // Largeur maximale
+        minHeight: 800, // Hauteur maximale
+        quality: 85, // Qualité de compression (0-100)
+        format: CompressFormat.jpeg,
+      );
+
+      // Si la compression a échoué ou si l'image est déjà petite, retourner l'original
+      if (compressedBytes.isEmpty || compressedBytes.length >= bytes.length) {
+        // Essayer une compression plus agressive si nécessaire
+        if (bytes.length > 500 * 1024) {
+          // Si > 500KB
+          final aggressiveCompress =
+              await FlutterImageCompress.compressWithList(
+            bytes,
+            minWidth: 600,
+            minHeight: 600,
+            quality: 70,
+            format: CompressFormat.jpeg,
+          );
+          if (aggressiveCompress.isNotEmpty &&
+              aggressiveCompress.length < bytes.length) {
+            return aggressiveCompress;
+          }
+        }
+        return bytes;
+      }
+
+      return compressedBytes;
+    } catch (e) {
+      debugPrint('[AuthService] Image compression failed: $e');
+      // En cas d'erreur de compression, retourner l'image originale
+      return bytes;
     }
   }
 

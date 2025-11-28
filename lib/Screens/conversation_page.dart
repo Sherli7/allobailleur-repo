@@ -20,10 +20,10 @@ class _ConversationPageState extends State<ConversationPage> {
   @override
   void initState() {
     super.initState();
-    // For demo, assume a conversation ID
-    const conversationId = 'demo_conversation';
-    context.read<MessagesProvider>().selectConversation(conversationId);
-    // Load messages if needed
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      const conversationId = 'demo_conversation';
+      context.read<MessagesProvider>().selectConversation(conversationId);
+    });
     _scrollToBottom();
   }
 

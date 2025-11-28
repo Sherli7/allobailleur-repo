@@ -16,7 +16,8 @@ class SearchPage extends StatefulWidget {
 class _SearchPageState extends State<SearchPage> {
   final TextEditingController _searchController = TextEditingController();
   double _minPrice = 0; // Pas de filtre prix minimum initial
-  double _maxPrice = 2000; // Prix maximum correspondant au slider
+  double _maxPrice =
+      1000000; // Prix maximum élevé pour inclure toutes les propriétés
   String? _selectedType;
   int _selectedRooms = 0;
   List<Property> _filteredProperties = [];
@@ -402,7 +403,7 @@ class _FiltersBottomSheetState extends State<_FiltersBottomSheet> {
     super.initState();
     // Définir les limites dynamiques basées sur les données disponibles
     _minPriceLimit = 0;
-    _maxPriceLimit = 5000; // Prix maximum possible
+    _maxPriceLimit = 1000000; // Prix maximum possible
 
     // S'assurer que les valeurs initiales sont dans les limites
     double startPrice = widget.minPrice.clamp(_minPriceLimit, _maxPriceLimit);
@@ -421,10 +422,7 @@ class _FiltersBottomSheetState extends State<_FiltersBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * 0.8,
-      ),
+    return SingleChildScrollView(
       child: Padding(
         padding: const EdgeInsets.all(20),
         child: Column(
@@ -709,7 +707,6 @@ class _FiltersBottomSheetState extends State<_FiltersBottomSheet> {
             const SizedBox(height: 16),
           ],
         ),
-      ),
-    );
+      ));
   }
 }

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'dart:ui' show ImageFilter;
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:rent_house/Screens/guestHomePage.dart';
+import 'package:rent_house/Screens/signUpPage.dart';
 import 'package:rent_house/Providers/auth_provider.dart' as app_auth;
 
 class LoginPage extends StatefulWidget {
@@ -605,8 +606,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                             ),
                                             TextButton(
                                               onPressed: () =>
-                                                  Navigator.pushNamed(
-                                                      context, '/register'),
+                                                  Navigator.pushNamed(context,
+                                                      SignUpPage.routeName),
                                               child: Text(
                                                 'S\'inscrire',
                                                 style: theme

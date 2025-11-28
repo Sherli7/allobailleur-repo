@@ -181,9 +181,30 @@ class AuthService {
     try {
       final response =
           await _supabase.from('users').select().eq('uid', uid).single();
-      return user_model.User.fromJson(response);
+      final user = user_model.User.fromJson(response);
+
+      // Check for active subscription
+      final hasActive = await hasActiveSubscription(uid);
+      return user.copyWith(hasActiveSubscription: hasActive);
     } catch (e) {
       return null;
+    }
+  }
+
+  /// Check if user has an active subscription
+  Future<bool> hasActiveSubscription(String uid) async {
+    try {
+      final now = DateTime.now();
+      final response = await _supabase
+          .from('subscriptions')
+          .select()
+          .eq('userId', uid)
+          .eq('status', 'active')
+          .gte('endDate', now.toIso8601String());
+      return response.isNotEmpty;
+    } catch (e) {
+      debugPrint('Error checking subscription: $e');
+      return false;
     }
   }
 

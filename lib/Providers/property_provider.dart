@@ -508,8 +508,67 @@ class PropertyProvider with ChangeNotifier {
   }
 
   Future<Map<String, dynamic>> updateProperty(String id, Property property,
-          {dynamic newImages}) =>
-      _service.updateProperty(id, property);
+      {dynamic newImages}) async {
+    try {
+      // Update property document first
+      final res = await _service.updateProperty(id, property);
+      if (res['success'] != true) return res;
+
+      // If new images provided, upload them and update the property with image URLs
+      if (newImages != null && newImages.isNotEmpty) {
+        debugPrint(
+            'Starting image upload process for ${newImages.length} new images');
+        final List<String> newUrls = [];
+        for (var i = 0; i < newImages.length; i++) {
+          final img = newImages[i];
+          debugPrint('Uploading new image ${i + 1}/${newImages.length}');
+          try {
+            final url =
+                await _service.uploadImageWithProgress(img, id, (progress) {
+              uploadProgress = progress;
+              debugPrint('Upload progress: ${(progress * 100).toInt()}%');
+              notifyListeners();
+            });
+            if (url != null) {
+              newUrls.add(url);
+              debugPrint('New image ${i + 1} uploaded successfully: $url');
+            } else {
+              debugPrint('New image ${i + 1} upload failed - returned null');
+            }
+          } catch (e) {
+            debugPrint('Error uploading new image ${i + 1}: $e');
+          }
+        }
+
+        debugPrint(
+            'New upload complete. ${newUrls.length} images uploaded successfully');
+
+        if (newUrls.isNotEmpty) {
+          // Combine existing and new URLs
+          final allUrls = [...property.imageUrls, ...newUrls];
+          debugPrint('Updating property with combined image URLs: $allUrls');
+          try {
+            await _service.setPropertyImageUrls(id, allUrls);
+            debugPrint(
+                'Property updated with combined image URLs successfully');
+          } catch (e) {
+            debugPrint('Error updating property with combined image URLs: $e');
+          }
+        } else {
+          debugPrint('No new images were uploaded successfully');
+        }
+        uploadProgress = null;
+        notifyListeners();
+      }
+
+      return {'success': true};
+    } catch (e) {
+      errorMessage = e.toString();
+      notifyListeners();
+      return {'success': false, 'message': e.toString()};
+    }
+  }
+
   Future<Map<String, dynamic>> deleteProperty(String id) =>
       _service.deleteProperty(id);
 

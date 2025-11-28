@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:rent_house/Services/AuthService.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 
 import 'package:rent_house/Models/property.dart';
 import 'package:rent_house/Screens/BookPostingPage.dart';
@@ -32,9 +33,11 @@ import 'package:rent_house/theme/app_theme.dart';
 
 import 'Screens/conversation_page.dart';
 
+import 'package:rent_house/Screens/SubscriptionScreen.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: "assets/images/.env");
+  await dotenv.load(fileName: "images/.env");
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
 
   // Initialize Supabase (replace Firebase DB/Storage)
@@ -71,6 +74,7 @@ class MyApp extends StatelessWidget {
         darkTheme: AppTheme.darkTheme,
         home: const AuthWrapper(),
         routes: {
+          LoginPage.routeName: (context) => const LoginPage(),
           SignUpPage.routeName: (context) => const SignUpPage(),
           GuestHomePage.routeName: (context) => const GuestHomePage(),
           PersonalInfoPage.routeName: (context) => const PersonalInfoPage(),
@@ -85,6 +89,7 @@ class MyApp extends StatelessWidget {
           OwnerDashboard.routeName: (context) => const OwnerDashboard(),
           // Bookings list (guest & host)
           BookingsListPage.routeName: (context) => const BookingsListPage(),
+          SubscriptionScreen.routeName: (context) => const SubscriptionScreen(),
           PropertyDetailsPage.routeName: (context) {
             final property = ModalRoute.of(context)?.settings.arguments;
             if (property != null) {
@@ -115,8 +120,64 @@ class MyApp extends StatelessWidget {
   }
 }
 
-class AuthWrapper extends StatelessWidget {
+class AuthWrapper extends StatefulWidget {
   const AuthWrapper({super.key});
+
+  @override
+  State<AuthWrapper> createState() => _AuthWrapperState();
+}
+
+class _AuthWrapperState extends State<AuthWrapper> {
+  final Connectivity _connectivity = Connectivity();
+  bool _isOffline = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _connectivity.onConnectivityChanged.listen(_updateConnectionStatus);
+    _checkInitialConnectivity();
+  }
+
+  Future<void> _checkInitialConnectivity() async {
+    final result = await _connectivity.checkConnectivity();
+    _updateConnectionStatus(result);
+  }
+
+  void _updateConnectionStatus(ConnectivityResult result) {
+    final isOffline = result == ConnectivityResult.none;
+    if (isOffline != _isOffline) {
+      setState(() {
+        _isOffline = isOffline;
+      });
+      if (isOffline) {
+        _showOfflineDialog();
+      }
+    }
+  }
+
+  void _showOfflineDialog() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Connexion perdue'),
+          content: const Text(
+            'Vous avez perdu la connexion internet. Veuillez vérifier votre connexion et réessayer.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+                _checkInitialConnectivity(); // Recheck
+              },
+              child: const Text('Réessayer'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {

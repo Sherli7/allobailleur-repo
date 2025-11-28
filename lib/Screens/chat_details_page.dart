@@ -6,7 +6,7 @@ import 'package:video_player/video_player.dart';
 import 'package:chewie/chewie.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart'; // Pour images
-import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart'; // AJOUTÉ: Pour compression vidéo
+// import 'package:ffmpeg_kit_flutter/ffmpeg_kit.dart'; // AJOUTÉ: Pour compression vidéo - REMOVED
 import 'package:rent_house/Models/conversation.dart';
 import 'package:rent_house/Models/message.dart';
 import 'package:rent_house/Providers/messages_provider.dart';
@@ -298,18 +298,19 @@ class _ChatDetailsPageState extends State<ChatDetailsPage> {
 
     File fileToUpload = originalFile;
     if (isVideo) {
-      // Compression vidéo basique avec FFmpeg (resize + bitrate)
-      final session = await FFmpegKit.execute(
-        '-i ${originalFile.path} -vf scale=640:480 -b:v 1000k -r 30 ${originalFile.parent.path}/compressed_${DateTime.now().millisecondsSinceEpoch}.mp4',
-      );
-      final returnCode = await session.getReturnCode();
-      if (returnCode != null && returnCode.isValueSuccess()) {
-        fileToUpload = File(
-            '${originalFile.parent.path}/compressed_${DateTime.now().millisecondsSinceEpoch}.mp4');
-        debugPrint('Vidéo compressée avec succès');
-      } else {
-        debugPrint('Compression vidéo échouée, upload original');
-      }
+      // Compression vidéo désactivée temporairement (ffmpeg_kit discontinued)
+      // final session = await FFmpegKit.execute(
+      //   '-i ${originalFile.path} -vf scale=640:480 -b:v 1000k -r 30 ${originalFile.parent.path}/compressed_${DateTime.now().millisecondsSinceEpoch}.mp4',
+      // );
+      // final returnCode = await session.getReturnCode();
+      // if (returnCode != null && returnCode.isValueSuccess()) {
+      //   fileToUpload = File(
+      //       '${originalFile.parent.path}/compressed_${DateTime.now().millisecondsSinceEpoch}.mp4');
+      //   debugPrint('Vidéo compressée avec succès');
+      // } else {
+      //   debugPrint('Compression vidéo échouée, upload original');
+      // }
+      debugPrint('Upload vidéo sans compression');
     } else {
       // Compression image (comme avant)
       final compressedFileGeneric =
@@ -342,15 +343,9 @@ class _ChatDetailsPageState extends State<ChatDetailsPage> {
 
     setState(() => _isUploading = false);
 
-    if (url != null) {
-      final success = await _sendMessage(
-          imageUrl: isVideo ? null : url, videoUrl: isVideo ? url : null);
-      if (success) _scrollToBottom();
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Erreur lors de l\'upload')),
-      );
-    }
+    final success = await _sendMessage(
+        imageUrl: isVideo ? null : url, videoUrl: isVideo ? url : null);
+    if (success) _scrollToBottom();
   }
 
   Future<bool> _sendMessage({String? imageUrl, String? videoUrl}) async {

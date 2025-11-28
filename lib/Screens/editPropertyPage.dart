@@ -4,6 +4,7 @@ import 'package:image_picker/image_picker.dart';
 import 'dart:typed_data';
 import 'package:rent_house/Models/property.dart';
 import 'package:rent_house/Providers/property_provider.dart';
+import 'package:rent_house/Widgets/map_picker.dart';
 
 class EditPropertyPage extends StatefulWidget {
   static const String routeName = '/editPropertyPageRoute';
@@ -118,6 +119,33 @@ class _EditPropertyPageState extends State<EditPropertyPage> {
     setState(() {
       _existingImageUrls.removeAt(index);
     });
+  }
+
+  Future<void> _pickLocation() async {
+    // Open embedded OpenStreetMap picker (flutter_map)
+    final initialLat = double.tryParse(_latitudeController.text) ?? 3.8667;
+    final initialLng = double.tryParse(_longitudeController.text) ?? 11.5167;
+    final messenger = ScaffoldMessenger.of(context);
+    final nav = Navigator.of(context);
+    final result = await nav.push<MapPickerResult>(
+      MaterialPageRoute(
+          builder: (_) => MapPickerPage(
+                initialLat: initialLat,
+                initialLng: initialLng,
+              )),
+    );
+    if (result != null && mounted) {
+      setState(() {
+        _latitudeController.text = result.lat.toString();
+        _longitudeController.text = result.lng.toString();
+        // Optionally update city if available
+      });
+      if (mounted) {
+        messenger.showSnackBar(
+          const SnackBar(content: Text('Localisation sélectionnée')),
+        );
+      }
+    }
   }
 
   Future<void> _saveProperty() async {
@@ -547,34 +575,10 @@ class _EditPropertyPageState extends State<EditPropertyPage> {
                 value?.isEmpty ?? true ? 'Le quartier est requis' : null,
           ),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: TextFormField(
-                  controller: _latitudeController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: 'Latitude (optionnel)',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: TextFormField(
-                  controller: _longitudeController,
-                  keyboardType: TextInputType.number,
-                  decoration: InputDecoration(
-                    labelText: 'Longitude (optionnel)',
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                  ),
-                ),
-              ),
-            ],
+          ElevatedButton.icon(
+            onPressed: _pickLocation,
+            icon: const Icon(Icons.location_on),
+            label: const Text('Choisir sur Carte'),
           ),
           const SizedBox(height: 32),
         ],

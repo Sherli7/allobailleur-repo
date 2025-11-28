@@ -6,6 +6,9 @@ import 'package:rent_house/Providers/property_provider.dart';
 import 'package:rent_house/Models/property.dart';
 import 'package:rent_house/Views/text_widgets.dart';
 import 'package:rent_house/Screens/owner_dashboard.dart';
+import 'package:rent_house/Screens/personalInfoPage.dart';
+import 'package:rent_house/Screens/viewPostingPage.dart';
+import 'package:rent_house/Screens/editPropertyPage.dart';
 
 class ViewProfilePage extends StatefulWidget {
   static const String routeName = '/viewProfilePageRoute';
@@ -53,7 +56,8 @@ class _MyViewProfilePageState extends State<ViewProfilePage> {
         actions: [
           IconButton(
             icon: const Icon(Icons.edit),
-            onPressed: () => Navigator.pushNamed(context, '/personalInfo'),
+            onPressed: () =>
+                Navigator.pushNamed(context, PersonalInfoPage.routeName),
             tooltip: 'Éditer le profil',
           ),
           IconButton(
@@ -205,7 +209,7 @@ class _MyViewProfilePageState extends State<ViewProfilePage> {
                         subtitle: Text(
                             '${p.city} • ${p.price.toStringAsFixed(0)} € • ${p.status}'),
                         onTap: () => Navigator.pushNamed(
-                            context, '/viewPosting',
+                            context, ViewPostingPage.routeName,
                             arguments: p),
                         trailing: PopupMenuButton<String>(
                           onSelected: (value) async {
@@ -229,7 +233,8 @@ class _MyViewProfilePageState extends State<ViewProfilePage> {
                               }
                             } else if (value == 'edit') {
                               if (mounted) {
-                                Navigator.pushNamed(context, '/editProperty',
+                                Navigator.pushNamed(
+                                    context, EditPropertyPage.routeName,
                                     arguments: p);
                               }
                             } else if (value == 'delete') {
@@ -273,6 +278,26 @@ class _MyViewProfilePageState extends State<ViewProfilePage> {
                   },
                 );
               },
+            ),
+            const SizedBox(height: 24),
+            // Logout button
+            Center(
+              child: ElevatedButton.icon(
+                onPressed: () async {
+                  final authProvider =
+                      Provider.of<AuthProvider>(context, listen: false);
+                  await authProvider.logout();
+                  if (mounted) {
+                    Navigator.of(context).pushReplacementNamed('/login');
+                  }
+                },
+                icon: const Icon(Icons.logout),
+                label: const Text('Se déconnecter'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  foregroundColor: Colors.white,
+                ),
+              ),
             ),
             const SizedBox(height: 24),
           ],

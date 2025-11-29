@@ -108,7 +108,11 @@ class NaturalSearchService {
   Future<List<Property>> searchProperties(String naturalQuery) async {
     try {
       final filters = parseQuery(naturalQuery);
-      var query = _supabase.from('properties').select().eq('is_available', true);
+      // Correction: "isAvailable" (avec guillemets pour respecter la casse si la colonne a été créée avec des guillemets dans Postgres)
+      // ou tout en minuscule si c'est standard. Dans seed_data.sql, c'est "isAvailable".
+      // Supabase Postgrest est sensible à la casse pour les colonnes entre guillemets.
+      // Essayons avec la notation exacte de la base de données.
+      var query = _supabase.from('properties').select().eq('"isAvailable"', true);
 
       // Application des filtres basiques
       if (filters.containsKey('rooms')) query = query.gte('bedrooms', filters['rooms']);
@@ -136,13 +140,13 @@ class NaturalSearchService {
 
       // Filtres spécifiques (Conditions)
       if (filters.containsKey('power_type')) {
-         query = query.eq('powerType', filters['power_type']);
+         query = query.eq('"powerType"', filters['power_type']);
       }
       if (filters.containsKey('water_supplier')) {
-         query = query.eq('waterSupplier', filters['water_supplier']);
+         query = query.eq('"waterSupplier"', filters['water_supplier']);
       }
        if (filters.containsKey('no_deposit')) {
-         query = query.eq('furnishedNoDeposit', true);
+         query = query.eq('"furnishedNoDeposit"', true);
       }
 
       // Filtre géographique textuel (Ville)

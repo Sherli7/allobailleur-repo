@@ -239,100 +239,102 @@ class _BookingPageState extends State<BookingPage> {
                 ),
                 const Divider(),
                 Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Checkbox(
-                              value: _isIndefinite,
-                              onChanged: (value) {
-                                setState(() {
-                                  _isIndefinite = value ?? false;
-                                  if (_isIndefinite) {
-                                    _rangeEnd = null; // Reset end date
-                                  }
-                                });
-                              },
-                            ),
-                            const Text('Durée indéterminée'),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        if (_rangeStart != null) ...[
-                          Text(
-                            'Début : ${_rangeStart!.day}/${_rangeStart!.month}/${_rangeStart!.year}',
-                            style: const TextStyle(fontSize: 16),
-                          ),
-                          const SizedBox(height: 8),
-                          if (!_isIndefinite && _rangeEnd != null)
-                            Text(
-                              'Fin : ${_rangeEnd!.day}/${_rangeEnd!.month}/${_rangeEnd!.year}',
-                              style: const TextStyle(fontSize: 16),
-                            )
-                          else if (_isIndefinite)
-                            const Text(
-                              'Fin : Indéterminée',
-                              style: TextStyle(fontSize: 16),
-                            ),
-                          const Spacer(),
+                  child: SingleChildScrollView(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
                           Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const Text(
-                                    'Total estimé :',
-                                    style: TextStyle(
-                                        fontWeight: FontWeight.bold,
-                                        fontSize: 16),
-                                  ),
-                                  Text(
-                                    '${_calculateTotalPrice().toStringAsFixed(0)} $currency',
-                                    style: TextStyle(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .primary,
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                  if (_isIndefinite)
-                                    const Text(
-                                      '(Prix mensuel)',
-                                      style: TextStyle(
-                                          fontSize: 12, color: Colors.grey),
-                                    ),
-                                ],
+                              Checkbox(
+                                value: _isIndefinite,
+                                onChanged: (value) {
+                                  setState(() {
+                                    _isIndefinite = value ?? false;
+                                    if (_isIndefinite) {
+                                      _rangeEnd = null; // Reset end date
+                                    }
+                                  });
+                                },
                               ),
-                              ElevatedButton(
-                                onPressed:
-                                    _isSubmitting ? null : _confirmBooking,
-                                style: ElevatedButton.styleFrom(
-                                  padding: const EdgeInsets.symmetric(
-                                      horizontal: 32, vertical: 16),
-                                ),
-                                child: _isSubmitting
-                                    ? const SizedBox(
-                                        width: 20,
-                                        height: 20,
-                                        child: CircularProgressIndicator(
-                                            strokeWidth: 2))
-                                    : const Text('Confirmer'),
-                              ),
+                              const Text('Durée indéterminée'),
                             ],
                           ),
-                        ] else
-                          const Center(
-                            child: Text(
-                              'Sélectionnez vos dates sur le calendrier',
-                              style: TextStyle(color: Colors.grey),
+                          const SizedBox(height: 16),
+                          if (_rangeStart != null) ...[
+                            Text(
+                              'Début : ${_rangeStart!.day}/${_rangeStart!.month}/${_rangeStart!.year}',
+                              style: const TextStyle(fontSize: 16),
                             ),
-                          ),
-                      ],
+                            const SizedBox(height: 8),
+                            if (!_isIndefinite && _rangeEnd != null)
+                              Text(
+                                'Fin : ${_rangeEnd!.day}/${_rangeEnd!.month}/${_rangeEnd!.year}',
+                                style: const TextStyle(fontSize: 16),
+                              )
+                            else if (_isIndefinite)
+                              const Text(
+                                'Fin : Indéterminée',
+                                style: TextStyle(fontSize: 16),
+                              ),
+                            const SizedBox(height: 32),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Total estimé :',
+                                      style: TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 16),
+                                    ),
+                                    Text(
+                                      '${_calculateTotalPrice().toStringAsFixed(0)} $currency',
+                                      style: TextStyle(
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .primary,
+                                        fontSize: 20,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    if (_isIndefinite)
+                                      const Text(
+                                        '(Prix mensuel)',
+                                        style: TextStyle(
+                                            fontSize: 12, color: Colors.grey),
+                                      ),
+                                  ],
+                                ),
+                                ElevatedButton(
+                                  onPressed:
+                                      _isSubmitting ? null : _confirmBooking,
+                                  style: ElevatedButton.styleFrom(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 32, vertical: 16),
+                                  ),
+                                  child: _isSubmitting
+                                      ? const SizedBox(
+                                          width: 20,
+                                          height: 20,
+                                          child: CircularProgressIndicator(
+                                              strokeWidth: 2))
+                                      : const Text('Confirmer'),
+                                ),
+                              ],
+                            ),
+                          ] else
+                            const Center(
+                              child: Text(
+                                'Sélectionnez vos dates sur le calendrier',
+                                style: TextStyle(color: Colors.grey),
+                              ),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                 ),

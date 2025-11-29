@@ -1017,6 +1017,7 @@ class _CreatePropertyPageState extends State<CreatePropertyPage> {
                 Expanded(
                   child: DropdownButtonFormField<String>(
                     initialValue: _powerType,
+                    isExpanded: true,
                     decoration: InputDecoration(
                       labelText: 'Type de courant',
                       border: OutlineInputBorder(

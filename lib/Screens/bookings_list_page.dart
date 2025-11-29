@@ -39,7 +39,7 @@ class _BookingsListPageState extends State<BookingsListPage>
       child: ListTile(
         title: Text('Propriété: ${b.propertyId}'),
         subtitle: Text(
-            '${b.checkInDate.toLocal().toString().split(' ')[0]} → ${b.checkOutDate.toLocal().toString().split(' ')[0]}\nStatus: ${b.status}'),
+            '${b.checkInDate.toLocal().toString().split(' ')[0]} → ${b.checkOutDate?.toLocal().toString().split(' ')[0] ?? 'Indéterminé'}\nStatus: ${b.status}'),
         isThreeLine: true,
         trailing: Text('${b.totalPrice.toStringAsFixed(0)} €'),
       ),

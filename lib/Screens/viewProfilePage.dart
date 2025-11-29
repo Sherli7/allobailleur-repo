@@ -60,12 +60,13 @@ class _MyViewProfilePageState extends State<ViewProfilePage> {
                 Navigator.pushNamed(context, PersonalInfoPage.routeName),
             tooltip: 'Éditer le profil',
           ),
-          IconButton(
-            icon: const Icon(Icons.dashboard),
-            onPressed: () =>
-                Navigator.pushNamed(context, OwnerDashboard.routeName),
-            tooltip: 'Tableau de bord',
-          ),
+          if (user.role == 'owner' || user.isHost == true)
+            IconButton(
+              icon: const Icon(Icons.dashboard),
+              onPressed: () =>
+                  Navigator.pushNamed(context, OwnerDashboard.routeName),
+              tooltip: 'Tableau de bord',
+            ),
         ],
       ),
       body: SingleChildScrollView(
@@ -158,7 +159,10 @@ class _MyViewProfilePageState extends State<ViewProfilePage> {
                       Text(user.email,
                           style: Theme.of(context).textTheme.bodyMedium),
                       const SizedBox(height: 8),
-                      Text(user.isHost == true ? 'Hôte' : 'Locataire',
+                      Text(
+                          (user.role == 'owner' || user.isHost == true)
+                              ? 'Propriétaire'
+                              : 'Locataire',
                           style: Theme.of(context).textTheme.bodySmall),
                     ],
                   ),
@@ -180,105 +184,107 @@ class _MyViewProfilePageState extends State<ViewProfilePage> {
               style: Theme.of(context).textTheme.bodyLarge,
             ),
             const SizedBox(height: 24),
-            Text('Mes annonces', style: Theme.of(context).textTheme.titleLarge),
-            const SizedBox(height: 8),
-            Consumer<PropertyProvider>(
-              builder: (context, provider, child) {
-                if (_loadingProperties) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-                final list = provider.userProperties ?? [];
-                if (list.isEmpty) {
-                  return const Text('Vous n\'avez pas d\'annonces.');
-                }
-                return ListView.builder(
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: list.length,
-                  itemBuilder: (context, i) {
-                    final Property p = list[i];
-                    return Card(
-                      margin: const EdgeInsets.symmetric(vertical: 8),
-                      child: ListTile(
-                        leading: p.imageUrls.isNotEmpty
-                            ? Image.network(p.imageUrls.first,
-                                width: 72, height: 72, fit: BoxFit.cover)
-                            : Container(
-                                width: 72, height: 72, color: Colors.grey[200]),
-                        title: Text(p.title),
-                        subtitle: Text(
-                            '${p.city} • ${p.price.toStringAsFixed(0)} € • ${p.status}'),
-                        onTap: () => Navigator.pushNamed(
-                            context, ViewPostingPage.routeName,
-                            arguments: p),
-                        trailing: PopupMenuButton<String>(
-                          onSelected: (value) async {
-                            if (value == 'mark_rented') {
-                              final messenger = ScaffoldMessenger.of(context);
-                              final ok = await provider.completeRental(p);
-                              if (mounted) {
-                                messenger.showSnackBar(SnackBar(
-                                    content: Text(ok
-                                        ? 'Annonce marquée louée'
-                                        : 'Échec')));
-                              }
-                            } else if (value == 'restore') {
-                              final messenger = ScaffoldMessenger.of(context);
-                              final ok = await provider.restoreProperty(p);
-                              if (mounted) {
-                                messenger.showSnackBar(SnackBar(
-                                    content: Text(ok
-                                        ? 'Annonce remise en ligne'
-                                        : 'Échec')));
-                              }
-                            } else if (value == 'edit') {
-                              if (mounted) {
-                                Navigator.pushNamed(
-                                    context, EditPropertyPage.routeName,
-                                    arguments: p);
-                              }
-                            } else if (value == 'delete') {
-                              final messenger = ScaffoldMessenger.of(context);
-                              final res = await provider.deleteProperty(p.id);
-                              if (res['success'] == true) {
-                                // Reload provider lists via provider methods
-                                final uid = user.uid;
-                                await provider.loadHostProperties(uid);
-                                await provider.fetchProperties();
-                                if (mounted) {
-                                  messenger.showSnackBar(const SnackBar(
-                                      content: Text('Annonce supprimée')));
-                                }
-                              } else {
+            if (user.role == 'owner' || user.isHost == true) ...[
+              Text('Mes annonces', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 8),
+              Consumer<PropertyProvider>(
+                builder: (context, provider, child) {
+                  if (_loadingProperties) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  final list = provider.userProperties ?? [];
+                  if (list.isEmpty) {
+                    return const Text('Vous n\'avez pas d\'annonces.');
+                  }
+                  return ListView.builder(
+                    shrinkWrap: true,
+                    physics: const NeverScrollableScrollPhysics(),
+                    itemCount: list.length,
+                    itemBuilder: (context, i) {
+                      final Property p = list[i];
+                      return Card(
+                        margin: const EdgeInsets.symmetric(vertical: 8),
+                        child: ListTile(
+                          leading: p.imageUrls.isNotEmpty
+                              ? Image.network(p.imageUrls.first,
+                                  width: 72, height: 72, fit: BoxFit.cover)
+                              : Container(
+                                  width: 72, height: 72, color: Colors.grey[200]),
+                          title: Text(p.title),
+                          subtitle: Text(
+                              '${p.city} • ${p.price.toStringAsFixed(0)} € • ${p.status}'),
+                          onTap: () => Navigator.pushNamed(
+                              context, ViewPostingPage.routeName,
+                              arguments: p),
+                          trailing: PopupMenuButton<String>(
+                            onSelected: (value) async {
+                              if (value == 'mark_rented') {
+                                final messenger = ScaffoldMessenger.of(context);
+                                final ok = await provider.completeRental(p);
                                 if (mounted) {
                                   messenger.showSnackBar(SnackBar(
-                                      content: Text(
-                                          'Erreur: ${res['message'] ?? ''}')));
+                                      content: Text(ok
+                                          ? 'Annonce marquée louée'
+                                          : 'Échec')));
+                                }
+                              } else if (value == 'restore') {
+                                final messenger = ScaffoldMessenger.of(context);
+                                final ok = await provider.restoreProperty(p);
+                                if (mounted) {
+                                  messenger.showSnackBar(SnackBar(
+                                      content: Text(ok
+                                          ? 'Annonce remise en ligne'
+                                          : 'Échec')));
+                                }
+                              } else if (value == 'edit') {
+                                if (mounted) {
+                                  Navigator.pushNamed(
+                                      context, EditPropertyPage.routeName,
+                                      arguments: p);
+                                }
+                              } else if (value == 'delete') {
+                                final messenger = ScaffoldMessenger.of(context);
+                                final res = await provider.deleteProperty(p.id);
+                                if (res['success'] == true) {
+                                  // Reload provider lists via provider methods
+                                  final uid = user.uid;
+                                  await provider.loadHostProperties(uid);
+                                  await provider.fetchProperties();
+                                  if (mounted) {
+                                    messenger.showSnackBar(const SnackBar(
+                                        content: Text('Annonce supprimée')));
+                                  }
+                                } else {
+                                  if (mounted) {
+                                    messenger.showSnackBar(SnackBar(
+                                        content: Text(
+                                            'Erreur: ${res['message'] ?? ''}')));
+                                  }
                                 }
                               }
-                            }
-                          },
-                          itemBuilder: (context) => [
-                            if (p.status != 'rented')
+                            },
+                            itemBuilder: (context) => [
+                              if (p.status != 'rented')
+                                const PopupMenuItem(
+                                    value: 'mark_rented',
+                                    child: Text('Marquer loué')),
+                              if (p.status == 'rented')
+                                const PopupMenuItem(
+                                    value: 'restore',
+                                    child: Text('Remettre en ligne')),
                               const PopupMenuItem(
-                                  value: 'mark_rented',
-                                  child: Text('Marquer loué')),
-                            if (p.status == 'rented')
+                                  value: 'edit', child: Text('Éditer')),
                               const PopupMenuItem(
-                                  value: 'restore',
-                                  child: Text('Remettre en ligne')),
-                            const PopupMenuItem(
-                                value: 'edit', child: Text('Éditer')),
-                            const PopupMenuItem(
-                                value: 'delete', child: Text('Supprimer')),
-                          ],
+                                  value: 'delete', child: Text('Supprimer')),
+                            ],
+                          ),
                         ),
-                      ),
-                    );
-                  },
-                );
-              },
-            ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ],
             const SizedBox(height: 24),
             // Logout button
             Center(

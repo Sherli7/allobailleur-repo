@@ -1,5 +1,5 @@
 name: rent_house
-description: "Allô Bailleur is a comprehensive mobile app for real estate rentals in France, allowing users to search properties with advanced filters, save favorites, chat in real-time with owners, book securely, and manage listings—all powered by Firebase for seamless, real-time experiences."
+description: "Allô Bailleur is a comprehensive mobile app for real estate rentals in Cameroun, allowing users to search properties with advanced filters, save favorites, chat in real-time with owners, book securely, and manage listings—all powered by Firebase for seamless, real-time experiences."
 publish_to: 'none'
 
 version: 1.0.0+1
@@ -21,7 +21,8 @@ dependencies:
   font_awesome_flutter: ^10.7.0
   flutter_rating_bar: ^4.0.1
   auto_size_text: ^3.0.0
-  flutter_svg: ^2.0.10
+  flutter_svg: ^2.0.10+1
+  table_calendar: ^3.1.0 # Mise à jour pour le calendrier de réservation
 
   # Firebase
   firebase_core: ^3.6.0
@@ -62,13 +63,18 @@ dependencies:
   geolocator: ^9.0.2
   share_plus: ^7.2.2
   connectivity_plus: ^6.0.5
+  url_launcher: ^6.3.0
+  shimmer: ^3.0.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
+  mockito: ^5.4.4
+  build_runner: ^2.4.8
 
 flutter:
   uses-material-design: true
   assets:
     - assets/images/
+    - .env

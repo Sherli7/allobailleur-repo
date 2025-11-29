@@ -4,7 +4,10 @@ import 'dart:io';
 import 'package:rent_house/Models/property.dart';
 
 class PropertyService {
-  final SupabaseClient _supabase = Supabase.instance.client;
+  final SupabaseClient _supabase;
+
+  PropertyService({SupabaseClient? supabaseClient})
+      : _supabase = supabaseClient ?? Supabase.instance.client;
 
   /// Créer une nouvelle propriété
   Future<Map<String, dynamic>> createProperty(Property property) async {
@@ -47,8 +50,8 @@ class PropertyService {
       final response = await _supabase
           .from('properties')
           .select()
-          .eq('is_available', true)
-          .order('created_at', ascending: false);
+          .neq('status', 'rented')
+          .order('createdAt', ascending: false);
       return response.map((data) => Property.fromJson(data)).toList();
     } catch (e) {
       return [];
@@ -61,8 +64,8 @@ class PropertyService {
       final response = await _supabase
           .from('properties')
           .select()
-          .eq('owner_id', hostId)
-          .order('created_at', ascending: false);
+          .eq('ownerId', hostId)
+          .order('createdAt', ascending: false);
       return response.map((data) => Property.fromJson(data)).toList();
     } catch (e) {
       return [];
@@ -76,7 +79,7 @@ class PropertyService {
           .from('properties')
           .select()
           .eq('city', city)
-          .eq('is_available', true);
+          .neq('status', 'rented');
       return response.map((data) => Property.fromJson(data)).toList();
     } catch (e) {
       return [];
@@ -92,7 +95,7 @@ class PropertyService {
           .select()
           .gte('price', minPrice)
           .lte('price', maxPrice)
-          .eq('is_available', true);
+          .neq('status', 'rented');
       return response.map((data) => Property.fromJson(data)).toList();
     } catch (e) {
       return [];
@@ -146,8 +149,8 @@ class PropertyService {
   ) async {
     try {
       await _supabase.from('favorites').insert({
-        'user_id': userId,
-        'property_id': propertyId,
+        'userId': userId,
+        'propertyId': propertyId,
       });
 
       return {
@@ -171,8 +174,8 @@ class PropertyService {
       await _supabase
           .from('favorites')
           .delete()
-          .eq('user_id', userId)
-          .eq('property_id', propertyId);
+          .eq('userId', userId)
+          .eq('propertyId', propertyId);
 
       return {
         'success': true,
@@ -195,8 +198,8 @@ class PropertyService {
   ) async {
     try {
       await _supabase.from('reviews').insert({
-        'property_id': propertyId,
-        'user_id': userId,
+        'propertyId': propertyId,
+        'userId': userId,
         'rating': rating,
         'comment': comment,
       });
@@ -204,11 +207,11 @@ class PropertyService {
       // Mettre à jour la note moyenne et le nombre d'avis
       final response = await _supabase
           .from('properties')
-          .select('rating, review_count')
+          .select('rating, reviewCount')
           .eq('id', propertyId)
           .single();
       final currentRating = response['rating'] as double;
-      final currentReviewCount = response['review_count'] as int;
+      final currentReviewCount = response['reviewCount'] as int;
 
       final newReviewCount = currentReviewCount + 1;
       final newRating =

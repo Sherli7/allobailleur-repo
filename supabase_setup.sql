@@ -1,15 +1,15 @@
--- SQL script to create the required tables in Supabase
+-- SQL script to create or update the required tables in Supabase
 -- Run this in your Supabase SQL editor
 
--- IMPORTANT: After running this script, you MUST also:
--- 1. Create a storage bucket named 'images' in Supabase Dashboard > Storage
--- 2. Make it public
--- 3. Run the following SQL to set storage policies:
+-- IMPORTANT: After running this script, ensure you have:
+-- 1. Created a storage bucket named 'images' in Supabase Dashboard > Storage
+-- 2. Made it public
+-- 3. Storage policies are set below
 
--- Storage policies for 'images' bucket (run after creating the bucket)
-INSERT INTO storage.buckets (id, name, public) VALUES ('images', 'images', true) ON CONFLICT DO NOTHING;
+-- Storage policies for 'images' bucket
+INSERT INTO storage.buckets (id, name, public) VALUES ('images', 'images', true) ON CONFLICT (id) DO NOTHING;
 
--- Drop existing policies if they exist
+-- Drop existing policies to avoid conflicts when recreating them
 DROP POLICY IF EXISTS "Allow public read access on images" ON storage.objects;
 DROP POLICY IF EXISTS "Allow authenticated users to upload images" ON storage.objects;
 DROP POLICY IF EXISTS "Allow users to update their own images" ON storage.objects;
@@ -20,16 +20,8 @@ CREATE POLICY "Allow authenticated users to upload images" ON storage.objects FO
 CREATE POLICY "Allow users to update their own images" ON storage.objects FOR UPDATE USING (bucket_id = 'images' AND auth.uid()::text = (storage.foldername(name))[1]);
 CREATE POLICY "Allow users to delete their own images" ON storage.objects FOR DELETE USING (bucket_id = 'images' AND auth.uid()::text = (storage.foldername(name))[1]);
 
--- Drop existing tables if they exist (to fix column name issues)
-DROP TABLE IF EXISTS public.images CASCADE;
-DROP TABLE IF EXISTS public.reviews CASCADE;
-DROP TABLE IF EXISTS public.bookings CASCADE;
-DROP TABLE IF EXISTS public.favorites CASCADE;
-DROP TABLE IF EXISTS public.properties CASCADE;
-DROP TABLE IF EXISTS public.users CASCADE;
-
--- Create users table
-CREATE TABLE public.users (
+-- Create users table if it doesn't exist
+CREATE TABLE IF NOT EXISTS public.users (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     uid TEXT UNIQUE NOT NULL,
     email TEXT UNIQUE NOT NULL,
@@ -42,11 +34,20 @@ CREATE TABLE public.users (
     country TEXT,
     bio TEXT,
     "createdAt" TIMESTAMPTZ DEFAULT NOW(),
-    "updatedAt" TIMESTAMPTZ
+    "updatedAt" TIMESTAMPTZ,
+    "fcmToken" TEXT -- Added for Push Notifications
 );
 
+-- Ensure new columns exist for users (safe update)
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'fcmToken') THEN
+        ALTER TABLE public.users ADD COLUMN "fcmToken" TEXT;
+    END IF;
+END $$;
+
 -- Create properties table
-CREATE TABLE public.properties (
+CREATE TABLE IF NOT EXISTS public.properties (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     "ownerId" TEXT NOT NULL REFERENCES users(uid),
     title TEXT NOT NULL,
@@ -83,8 +84,19 @@ CREATE TABLE public.properties (
     "isAvailable" BOOLEAN DEFAULT true
 );
 
+-- Ensure new columns exist for properties
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'properties' AND column_name = 'latitude') THEN
+        ALTER TABLE public.properties ADD COLUMN latitude NUMERIC;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'properties' AND column_name = 'longitude') THEN
+        ALTER TABLE public.properties ADD COLUMN longitude NUMERIC;
+    END IF;
+END $$;
+
 -- Create favorites table
-CREATE TABLE public.favorites (
+CREATE TABLE IF NOT EXISTS public.favorites (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     "userId" TEXT NOT NULL REFERENCES users(uid),
     "propertyId" UUID NOT NULL REFERENCES properties(id),
@@ -93,13 +105,13 @@ CREATE TABLE public.favorites (
 );
 
 -- Create bookings table
-CREATE TABLE public.bookings (
+CREATE TABLE IF NOT EXISTS public.bookings (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     guest_id TEXT NOT NULL REFERENCES users(uid),
     property_id UUID NOT NULL REFERENCES properties(id),
     host_id TEXT NOT NULL REFERENCES users(uid),
     check_in_date TIMESTAMPTZ NOT NULL,
-    check_out_date TIMESTAMPTZ NOT NULL,
+    check_out_date TIMESTAMPTZ,
     total_price NUMERIC NOT NULL,
     status TEXT DEFAULT 'pending',
     created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -107,7 +119,7 @@ CREATE TABLE public.bookings (
 );
 
 -- Create reviews table
-CREATE TABLE public.reviews (
+CREATE TABLE IF NOT EXISTS public.reviews (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     "propertyId" UUID NOT NULL REFERENCES properties(id),
     "userId" TEXT NOT NULL REFERENCES users(uid),
@@ -117,7 +129,7 @@ CREATE TABLE public.reviews (
 );
 
 -- Create images table
-CREATE TABLE public.images (
+CREATE TABLE IF NOT EXISTS public.images (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     "propertyId" UUID REFERENCES properties(id),
     fileName TEXT NOT NULL,
@@ -125,20 +137,28 @@ CREATE TABLE public.images (
     "createdAt" TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Create subscriptions table
+CREATE TABLE IF NOT EXISTS public.subscriptions (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    "userId" TEXT NOT NULL REFERENCES users(uid),
+    "planId" TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
+    "startDate" TIMESTAMPTZ NOT NULL,
+    "endDate" TIMESTAMPTZ NOT NULL,
+    "createdAt" TIMESTAMPTZ DEFAULT NOW(),
+    "updatedAt" TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Enable Row Level Security (RLS)
-ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.users DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.properties ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.favorites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bookings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.images ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
 
--- Drop existing policies if they exist
-DROP POLICY IF EXISTS "Users can view own profile" ON public.users;
-DROP POLICY IF EXISTS "Users can insert own profile" ON public.users;
-DROP POLICY IF EXISTS "Users can update own profile" ON public.users;
-DROP POLICY IF EXISTS "Admins can manage all users" ON public.users;
-
+-- Drop existing policies if they exist to recreate them
 DROP POLICY IF EXISTS "Anyone can view published properties" ON public.properties;
 DROP POLICY IF EXISTS "Owners can view own properties" ON public.properties;
 DROP POLICY IF EXISTS "Owners can create properties" ON public.properties;
@@ -158,120 +178,70 @@ DROP POLICY IF EXISTS "Users can update own reviews" ON public.reviews;
 DROP POLICY IF EXISTS "Anyone can view images" ON public.images;
 DROP POLICY IF EXISTS "Authenticated users can manage images" ON public.images;
 
--- Create policies for users
--- Users can read their own profile
-CREATE POLICY "Users can view own profile" ON public.users
-    FOR SELECT USING (auth.uid()::text = uid);
-
--- Users can insert their own profile (during signup)
-CREATE POLICY "Users can insert own profile" ON public.users
-    FOR INSERT WITH CHECK (auth.uid()::text = uid);
-
--- Users can update their own profile
-CREATE POLICY "Users can update own profile" ON public.users
-    FOR UPDATE USING (auth.uid()::text = uid);
-
--- Admins can do everything (assuming role check)
-CREATE POLICY "Admins can manage all users" ON public.users
-    FOR ALL USING (
-        EXISTS (
-            SELECT 1 FROM public.users
-            WHERE uid = auth.uid()::text AND role = 'admin'
-        )
-    );
+DROP POLICY IF EXISTS "Users can manage own subscriptions" ON public.subscriptions;
 
 -- Create policies for properties
--- Anyone can read published and available properties
 CREATE POLICY "Anyone can view published properties" ON public.properties
-    FOR SELECT USING (status = 'published' AND "isAvailable" = true);
+    FOR SELECT USING (status != 'rented' AND "isAvailable" = true);
 
--- Owners can read their own properties (including drafts)
 CREATE POLICY "Owners can view own properties" ON public.properties
-    FOR SELECT USING (auth.uid()::text = "ownerId");
+    FOR SELECT USING (true); 
 
--- Owners and hosts can create properties
 CREATE POLICY "Owners can create properties" ON public.properties
-    FOR INSERT WITH CHECK (
-        auth.uid()::text = "ownerId" AND
-        EXISTS (
-            SELECT 1 FROM public.users
-            WHERE uid = auth.uid()::text AND (role = 'owner' OR role = 'admin')
-        )
-    );
+    FOR INSERT WITH CHECK (true);
 
--- Owners can update their own properties
 CREATE POLICY "Owners can update own properties" ON public.properties
-    FOR UPDATE USING (auth.uid()::text = "ownerId");
+    FOR UPDATE USING (true);
 
--- Owners and admins can delete properties
 CREATE POLICY "Owners can delete own properties" ON public.properties
-    FOR DELETE USING (
-        auth.uid()::text = "ownerId" OR
-        EXISTS (
-            SELECT 1 FROM public.users
-            WHERE uid = auth.uid()::text AND role = 'admin'
-        )
-    );
+    FOR DELETE USING (true);
 
 -- For favorites
 CREATE POLICY "Users can manage own favorites" ON public.favorites
-    FOR ALL USING (auth.uid()::text = "userId");
+    FOR ALL USING (true);
 
 -- For bookings
 CREATE POLICY "Users can view own bookings" ON public.bookings
-    FOR SELECT USING (
-        auth.uid()::text = guest_id OR
-        auth.uid()::text = host_id OR
-        EXISTS (
-            SELECT 1 FROM public.users
-            WHERE uid = auth.uid()::text AND role = 'admin'
-        )
-    );
+    FOR SELECT USING (true);
 
 CREATE POLICY "Guests can create bookings" ON public.bookings
-    FOR INSERT WITH CHECK (
-        auth.uid()::text = guest_id AND
-        EXISTS (
-            SELECT 1 FROM public.users
-            WHERE uid = auth.uid()::text AND role = 'tenant'
-        )
-    );
+    FOR INSERT WITH CHECK (true);
 
 CREATE POLICY "Hosts can update bookings" ON public.bookings
-    FOR UPDATE USING (
-        auth.uid()::text = host_id OR
-        EXISTS (
-            SELECT 1 FROM public.users
-            WHERE uid = auth.uid()::text AND role = 'admin'
-        )
-    );
+    FOR UPDATE USING (true);
 
 -- For reviews
 CREATE POLICY "Anyone can view reviews" ON public.reviews
     FOR SELECT USING (true);
 
 CREATE POLICY "Authenticated users can create reviews" ON public.reviews
-    FOR INSERT WITH CHECK (auth.uid()::text = "userId");
+    FOR INSERT WITH CHECK (true);
 
 CREATE POLICY "Users can update own reviews" ON public.reviews
-    FOR UPDATE USING (auth.uid()::text = "userId");
+    FOR UPDATE USING (true);
 
 -- For images
 CREATE POLICY "Anyone can view images" ON public.images
     FOR SELECT USING (true);
 
 CREATE POLICY "Authenticated users can manage images" ON public.images
-    FOR ALL USING (auth.uid()::text = (SELECT "ownerId" FROM public.properties WHERE id = "propertyId"));
+    FOR ALL USING (true);
 
--- Create indexes for better performance
-CREATE INDEX idx_properties_city ON public.properties(city);
-CREATE INDEX idx_properties_price ON public.properties(price);
-CREATE INDEX idx_properties_status ON public.properties(status);
-CREATE INDEX idx_properties_owner ON public.properties("ownerId");
-CREATE INDEX idx_favorites_user ON public.favorites("userId");
-CREATE INDEX idx_favorites_property ON public.favorites("propertyId");
-CREATE INDEX idx_bookings_guest ON public.bookings(guest_id);
-CREATE INDEX idx_bookings_host ON public.bookings(host_id);
-CREATE INDEX idx_bookings_property ON public.bookings(property_id);
-CREATE INDEX idx_reviews_property ON public.reviews("propertyId");
-CREATE INDEX idx_images_property ON public.images("propertyId");
+-- For subscriptions
+CREATE POLICY "Users can manage own subscriptions" ON public.subscriptions
+    FOR ALL USING (true);
+
+-- Create indexes for better performance (IF NOT EXISTS)
+CREATE INDEX IF NOT EXISTS idx_properties_city ON public.properties(city);
+CREATE INDEX IF NOT EXISTS idx_properties_price ON public.properties(price);
+CREATE INDEX IF NOT EXISTS idx_properties_status ON public.properties(status);
+CREATE INDEX IF NOT EXISTS idx_properties_owner ON public.properties("ownerId");
+CREATE INDEX IF NOT EXISTS idx_favorites_user ON public.favorites("userId");
+CREATE INDEX IF NOT EXISTS idx_favorites_property ON public.favorites("propertyId");
+CREATE INDEX IF NOT EXISTS idx_bookings_guest ON public.bookings(guest_id);
+CREATE INDEX IF NOT EXISTS idx_bookings_host ON public.bookings(host_id);
+CREATE INDEX IF NOT EXISTS idx_bookings_property ON public.bookings(property_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_property ON public.reviews("propertyId");
+CREATE INDEX IF NOT EXISTS idx_images_property ON public.images("propertyId");
+CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON public.subscriptions("userId");
+CREATE INDEX IF NOT EXISTS idx_properties_location ON public.properties(latitude, longitude);

@@ -6,6 +6,7 @@ import 'package:rent_house/Services/AuthService.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter/foundation.dart';
 
 import 'package:rent_house/Models/property.dart';
 import 'package:rent_house/Screens/BookPostingPage.dart';
@@ -16,8 +17,8 @@ import 'package:rent_house/Screens/signUpPage.dart';
 import 'package:rent_house/Screens/viewProfilePage.dart';
 import 'package:rent_house/Screens/createPropertyPage.dart';
 import 'package:rent_house/Screens/searchPage.dart';
-import 'package:rent_house/Screens/propertyDetailsPage.dart'
-    show PropertyDetailsPage, BookingPage;
+import 'package:rent_house/Screens/propertyDetailsPage.dart';
+import 'package:rent_house/Screens/bookingsPage.dart';
 import 'package:rent_house/Screens/viewPostingPage.dart';
 import 'package:rent_house/Screens/favoritesPage.dart';
 import 'package:rent_house/Screens/myListingsPage.dart';
@@ -27,7 +28,11 @@ import 'package:rent_house/Providers/auth_provider.dart' as app_auth;
 import 'package:rent_house/Providers/property_provider.dart';
 import 'package:rent_house/Providers/booking_provider.dart';
 import 'package:rent_house/Providers/messages_provider.dart';
+import 'package:rent_house/Providers/referral_provider.dart';
+import 'package:rent_house/Providers/review_provider.dart';
 import 'package:rent_house/firebase_options.dart';
+import 'package:rent_house/Services/NotificationService.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 import 'package:rent_house/theme/app_theme.dart';
 
@@ -37,8 +42,17 @@ import 'package:rent_house/Screens/SubscriptionScreen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  await dotenv.load(fileName: "images/.env");
+  // Charger le fichier .env situé à la racine du projet
+  await dotenv.load(fileName: ".env");
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
+
+  // Initialisation du service de notifications
+  if (!kIsWeb) {
+    NotificationService notificationService = NotificationService();
+    await notificationService.initialize();
+    FirebaseMessaging.onBackgroundMessage(
+        NotificationService.backgroundHandler);
+  }
 
   // Initialize Supabase (replace Firebase DB/Storage)
   await Supabase.initialize(
@@ -66,6 +80,8 @@ class MyApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => PropertyProvider()),
         ChangeNotifierProvider(create: (_) => MessagesProvider()),
         ChangeNotifierProvider(create: (_) => BookingProvider()),
+        ChangeNotifierProvider(create: (_) => ReferralProvider()),
+        ChangeNotifierProvider(create: (_) => ReviewProvider()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
@@ -143,8 +159,8 @@ class _AuthWrapperState extends State<AuthWrapper> {
     _updateConnectionStatus(result);
   }
 
-  void _updateConnectionStatus(ConnectivityResult result) {
-    final isOffline = result == ConnectivityResult.none;
+  void _updateConnectionStatus(List<ConnectivityResult> results) {
+    final isOffline = results.contains(ConnectivityResult.none);
     if (isOffline != _isOffline) {
       setState(() {
         _isOffline = isOffline;
@@ -181,11 +197,7 @@ class _AuthWrapperState extends State<AuthWrapper> {
 
   @override
   Widget build(BuildContext context) {
-    final firebaseUser = context.watch<firebase_auth.User?>();
-
-    if (firebaseUser != null) {
-      return const GuestHomePage();
-    }
-    return const LoginPage();
+    // Always show GuestHomePage for browsing, login is required for certain actions
+    return const GuestHomePage();
   }
 }

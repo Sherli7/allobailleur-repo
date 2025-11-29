@@ -44,14 +44,18 @@ class _MyListingsPageState extends State<MyListingsPage> {
             child: const Text('Annuler'),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               final propertyProvider =
                   Provider.of<PropertyProvider>(context, listen: false);
-              propertyProvider.deleteProperty(propertyId);
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Annonce supprimée')),
-              );
+              await propertyProvider.deleteProperty(propertyId);
+              // Refresh properties list
+              await propertyProvider.loadPropertiesOnce();
+              if (mounted) {
+                Navigator.pop(context);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Annonce supprimée')),
+                );
+              }
             },
             child: const Text('Supprimer', style: TextStyle(color: Colors.red)),
           ),

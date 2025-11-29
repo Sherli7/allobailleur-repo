@@ -7,6 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:rent_house/Services/google_sign_in_wrapper.dart';
 import 'package:rent_house/Models/Users.dart' as user_model;
+import 'package:firebase_messaging/firebase_messaging.dart';
 
 class AuthService {
   final firebase_auth.FirebaseAuth _firebaseAuth =
@@ -43,6 +44,7 @@ class AuthService {
     String role = 'tenant',
   }) async {
     try {
+      debugPrint('[AuthService] signUp called for email: $email');
       final userCredential = await _firebaseAuth.createUserWithEmailAndPassword(
         email: email,
         password: password,
@@ -52,20 +54,36 @@ class AuthService {
         return {'success': false, 'message': 'Échec de la création du compte.'};
       }
 
-      final appUser = user_model.User(
-        uid: user.uid,
-        email: email,
-        firstName: firstName,
-        lastName: lastName,
-        role: role,
-        // Persist optional profile fields provided during signup
-        city: city.isNotEmpty ? city : null,
-        country: country.isNotEmpty ? country : null,
-        bio: bio.isNotEmpty ? bio : null,
-        createdAt: DateTime.now(),
-      );
-
-      await _supabase.from('users').insert(appUser.toMap());
+      // Insert user profile directly to Supabase
+      try {
+        debugPrint('[AuthService] inserting user profile to Supabase');
+        final userMap = {
+          'uid': user.uid,
+          'email': email,
+          'firstName': firstName,
+          'lastName': lastName,
+          'city': city,
+          'country': country,
+          'bio': bio,
+          'role': role,
+          'isHost': role == 'owner', // Définit isHost si le rôle est owner
+          'createdAt': DateTime.now().toIso8601String(),
+        };
+        final response = await _supabase.from('users').insert(userMap).select();
+        debugPrint('[AuthService] Supabase insert result: $response');
+      } catch (insertEx) {
+        debugPrint('[AuthService] Supabase insert error: $insertEx');
+        // Delete the Firebase user if Supabase insert fails to maintain consistency
+        try {
+          await user.delete();
+        } catch (delEx) {
+          debugPrint('[AuthService] failed to delete Firebase user: $delEx');
+        }
+        return {
+          'success': false,
+          'message': 'Erreur création profil Supabase: $insertEx'
+        };
+      }
 
       // Set the Firebase user's display name for convenience
       try {
@@ -75,8 +93,13 @@ class AuthService {
         debugPrint('[AuthService] failed to update displayName: $e');
       }
 
+      // Try to update FCM token separately
+      _updateFcmToken(user.uid);
+
       return {'success': true, 'message': 'Compte créé avec succès.'};
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[AuthService] signUp error: $e');
+      debugPrint(st.toString());
       return {'success': false, 'message': 'Erreur inscription: $e'};
     }
   }
@@ -87,18 +110,39 @@ class AuthService {
     required String password,
   }) async {
     try {
-      await _firebaseAuth.signInWithEmailAndPassword(
+      debugPrint('[AuthService] login called for email: $email');
+      final credential = await _firebaseAuth.signInWithEmailAndPassword(
           email: email, password: password);
+      
+      // Mettre à jour le token FCM à la connexion
+      if (credential.user != null) {
+        _updateFcmToken(credential.user!.uid);
+      }
+          
       return {'success': true, 'message': 'Connexion réussie.'};
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[AuthService] login error: $e');
+      debugPrint(st.toString());
       return {'success': false, 'message': 'Erreur connexion: $e'};
+    }
+  }
+
+  /// Helper pour mettre à jour le token FCM
+  Future<void> _updateFcmToken(String uid) async {
+    try {
+      final token = await FirebaseMessaging.instance.getToken();
+      if (token != null) {
+        await _supabase.from('users').update({'fcmToken': token}).eq('uid', uid);
+        debugPrint('[AuthService] FCM token updated for user $uid');
+      }
+    } catch (e) {
+      debugPrint('[AuthService] Failed to update FCM token (non-critical): $e');
     }
   }
 
   /// Connexion Google (retourne Map attendu)
   Future<Map<String, dynamic>> signInWithGoogle() async {
     try {
-      // Use the platform-specific wrapper to sign in.
       final userCredential = await signInWithGoogleWrapped();
 
       if (userCredential == null || userCredential.user == null) {
@@ -109,20 +153,27 @@ class AuthService {
 
       if (user != null) {
         final response =
-            await _supabase.from('users').select().eq('uid', user.uid);
-        if (response.isEmpty) {
-          await _supabase.from('users').insert(user_model.User(
-                uid: user.uid,
-                email: user.email ?? '',
-                firstName: user.displayName?.split(' ').first ?? '',
-                lastName: user.displayName?.split(' ').skip(1).join(' ') ?? '',
-                createdAt: DateTime.now(),
-              ).toMap());
+            await _supabase.from('users').select().eq('uid', user.uid).maybeSingle();
+            
+        if (response == null) {
+          final userMap = {
+            'uid': user.uid,
+            'email': user.email ?? '',
+            'firstName': user.displayName?.split(' ').first ?? '',
+            'lastName': user.displayName?.split(' ').skip(1).join(' ') ?? '',
+            'createdAt': DateTime.now().toIso8601String(),
+            // Par défaut, Google sign-in crée un compte locataire
+          };
+          await _supabase.from('users').insert(userMap);
         }
+        
+        _updateFcmToken(user.uid);
       }
 
       return {'success': true, 'message': 'Connexion Google réussie.'};
-    } catch (e) {
+    } catch (e, st) {
+      debugPrint('[AuthService] signInWithGoogle error: $e');
+      debugPrint(st.toString());
       return {
         'success': false,
         'message': 'Erreur lors de la connexion Google: $e'
@@ -134,21 +185,16 @@ class AuthService {
   Future<void> logout() async {
     try {
       if (kIsWeb) {
-        debugPrint('[AuthService] Web logout: FirebaseAuth.signOut()');
         await _firebaseAuth.signOut();
         return;
       }
-
-      // Mobile / desktop: sign out via wrapper (which handles google_sign_in)
       try {
         await signOutGoogleWrapped();
       } catch (e) {
         debugPrint('[AuthService] signOutGoogleWrapped failed: $e');
       }
-
       await _firebaseAuth.signOut();
     } catch (e) {
-      debugPrint('[AuthService] logout error: $e');
       try {
         await _firebaseAuth.signOut();
       } catch (_) {}
@@ -165,7 +211,7 @@ class AuthService {
     }
   }
 
-  /// Mettre à jour le profil utilisateur (conserve l'ancienne signature)
+  /// Mettre à jour le profil utilisateur
   Future<String> updateUserProfile(
       String uid, Map<String, dynamic> data) async {
     try {
@@ -176,17 +222,43 @@ class AuthService {
     }
   }
 
-  /// Récupérer les données utilisateur en tant que modèle
+  /// Fonction pour devenir hôte (Become Host)
+  Future<Map<String, dynamic>> becomeHost() async {
+    try {
+      final user = _firebaseAuth.currentUser;
+      if (user == null) {
+        return {'success': false, 'message': 'Utilisateur non connecté.'};
+      }
+      
+      await _supabase.from('users').update({
+        'role': 'owner',
+        'isHost': true,
+      }).eq('uid', user.uid);
+      
+      return {'success': true, 'message': 'Félicitations ! Vous êtes maintenant bailleur.'};
+    } catch (e) {
+      return {'success': false, 'message': 'Erreur lors de la mise à jour du rôle: $e'};
+    }
+  }
+
+  /// Récupérer les données utilisateur
   Future<user_model.User?> getUserData(String uid) async {
     try {
+      debugPrint('[AuthService] fetching user data for uid: $uid');
       final response =
-          await _supabase.from('users').select().eq('uid', uid).single();
+          await _supabase.from('users').select().eq('uid', uid).maybeSingle();
+      
+      if (response == null) {
+        debugPrint('[AuthService] No user data found for uid: $uid');
+        return null;
+      }
+
       final user = user_model.User.fromJson(response);
 
-      // Check for active subscription
       final hasActive = await hasActiveSubscription(uid);
       return user.copyWith(hasActiveSubscription: hasActive);
     } catch (e) {
+      debugPrint('[AuthService] getUserData error: $e');
       return null;
     }
   }
@@ -203,16 +275,11 @@ class AuthService {
           .gte('endDate', now.toIso8601String());
       return response.isNotEmpty;
     } catch (e) {
-      debugPrint('Error checking subscription: $e');
       return false;
     }
   }
 
   /// Upload and set a profile image for the current user.
-  /// Accepts a File, XFile or Uint8List and stores it in Supabase Storage
-  /// under `profiles/<uid>/<timestamp>.jpg`, then updates the user's
-  /// `profileImageUrl` in the `users` table and returns the public URL.
-  /// Images are automatically compressed and resized for optimal performance.
   Future<String?> uploadProfileImage(dynamic file) async {
     try {
       final user = _firebaseAuth.currentUser;
@@ -226,7 +293,6 @@ class AuthService {
       if (file is XFile) {
         bytes = await file.readAsBytes();
       } else if (file is String) {
-        // path string -> File
         bytes = await File(file).readAsBytes();
       } else if (file is List<int>) {
         bytes = Uint8List.fromList(file);
@@ -238,10 +304,7 @@ class AuthService {
         throw UnsupportedError('Unsupported file type: ${file.runtimeType}');
       }
 
-      // Compresser et redimensionner l'image pour optimiser les performances
-      debugPrint('[AuthService] Original image size: ${bytes.length} bytes');
       bytes = await _compressImage(bytes);
-      debugPrint('[AuthService] Compressed image size: ${bytes.length} bytes');
 
       await _supabase.storage.from('images').uploadBinary(
             filePath,
@@ -251,7 +314,6 @@ class AuthService {
 
       final publicUrl = _supabase.storage.from('images').getPublicUrl(filePath);
 
-      // Update user record
       await updateUserProfile(uid, {'profileImageUrl': publicUrl});
 
       return publicUrl;
@@ -261,23 +323,18 @@ class AuthService {
     }
   }
 
-  /// Compress and resize image for optimal storage and loading performance
   Future<Uint8List> _compressImage(Uint8List bytes) async {
     try {
-      // Compresser l'image avec flutter_image_compress
       final compressedBytes = await FlutterImageCompress.compressWithList(
         bytes,
-        minWidth: 800, // Largeur maximale
-        minHeight: 800, // Hauteur maximale
-        quality: 85, // Qualité de compression (0-100)
+        minWidth: 800,
+        minHeight: 800,
+        quality: 85,
         format: CompressFormat.jpeg,
       );
 
-      // Si la compression a échoué ou si l'image est déjà petite, retourner l'original
       if (compressedBytes.isEmpty || compressedBytes.length >= bytes.length) {
-        // Essayer une compression plus agressive si nécessaire
         if (bytes.length > 500 * 1024) {
-          // Si > 500KB
           final aggressiveCompress =
               await FlutterImageCompress.compressWithList(
             bytes,
@@ -293,27 +350,19 @@ class AuthService {
         }
         return bytes;
       }
-
       return compressedBytes;
     } catch (e) {
-      debugPrint('[AuthService] Image compression failed: $e');
-      // En cas d'erreur de compression, retourner l'image originale
       return bytes;
     }
   }
 
-  /// Supprimer le compte utilisateur (attend uid) et renvoie Map
   Future<Map<String, dynamic>> deleteAccount(String uid) async {
     try {
-      // Supprimer le document Supabase
       await _supabase.from('users').delete().eq('uid', uid);
-
-      // Supprimer l'utilisateur authentifié si c'est le même
       final user = _firebaseAuth.currentUser;
       if (user != null && user.uid == uid) {
         await user.delete();
       }
-
       return {'success': true, 'message': 'Compte supprimé avec succès.'};
     } catch (e) {
       return {'success': false, 'message': 'Erreur suppression compte: $e'};

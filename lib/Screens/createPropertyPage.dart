@@ -352,6 +352,8 @@ class _CreatePropertyPageState extends State<CreatePropertyPage> {
         messenger.showSnackBar(
           const SnackBar(content: Text('Annonce publiée avec succès !')),
         );
+        // Refresh properties list to include the new property
+        await propertyProvider.loadPropertiesOnce();
         navigator.pop();
       }
     } catch (e) {
@@ -823,6 +825,7 @@ class _CreatePropertyPageState extends State<CreatePropertyPage> {
           ] else if (_propertyType == 'apartment') ...[
             DropdownButtonFormField<String>(
               initialValue: _style,
+              isExpanded: true,
               decoration: InputDecoration(
                 labelText: 'Style de l\'appartement',
                 border:

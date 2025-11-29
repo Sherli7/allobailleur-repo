@@ -205,6 +205,8 @@ class _EditPropertyPageState extends State<EditPropertyPage> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Propriété mise à jour avec succès!')),
         );
+        // Refresh properties list
+        await propertyProvider.loadPropertiesOnce();
         Navigator.pop(context);
       }
     } catch (e) {

@@ -3,11 +3,12 @@ import 'package:provider/provider.dart';
 import 'package:rent_house/Models/property.dart';
 import 'package:rent_house/Providers/property_provider.dart';
 import 'package:rent_house/Providers/auth_provider.dart' as app_auth;
+import 'package:rent_house/Providers/review_provider.dart';
 import 'package:rent_house/Screens/editPropertyPage.dart';
-import 'package:rent_house/Models/booking.dart';
-import 'package:rent_house/Providers/booking_provider.dart';
+import 'package:rent_house/Screens/bookingsPage.dart';
 import 'package:share_plus/share_plus.dart';
-// BookingService not required here since payments are off-platform
+import 'package:rent_house/Services/messages_service.dart';
+import 'package:rent_house/Screens/conversation_page.dart';
 
 class PropertyDetailsPage extends StatefulWidget {
   static const String routeName = '/propertyDetailsRoute';
@@ -23,6 +24,7 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
   bool _isFavorite = false;
   late final PageController _imagePageController;
   int _currentImageIndex = 0;
+  bool _isMessageLoading = false;
 
   @override
   void initState() {
@@ -38,6 +40,8 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
           _isFavorite = favs.any((p) => p.id == widget.property.id);
         });
       }
+      // Load reviews
+      context.read<ReviewProvider>().loadReviews(widget.property.id);
     });
     _imagePageController = PageController();
   }
@@ -51,14 +55,23 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
   Future<void> _toggleFavorite() async {
     final propertyProvider =
         Provider.of<PropertyProvider>(context, listen: false);
+    // Optimistic update: toggle immediately for better UX
+    setState(() {
+      _isFavorite = !_isFavorite;
+    });
     try {
       final changed = await propertyProvider.toggleFavorite(widget.property);
-      if (changed) {
+      if (!changed) {
+        // Revert if failed
         setState(() {
           _isFavorite = !_isFavorite;
         });
       }
     } catch (e) {
+      // Revert on error
+      setState(() {
+        _isFavorite = !_isFavorite;
+      });
       debugPrint('Erreur toggle favorite: $e');
     }
   }
@@ -99,6 +112,52 @@ Découvrez cette propriété sur Allô Bailleur !
     }
   }
 
+  Future<void> _handleMessageButton() async {
+    final user = Provider.of<app_auth.AuthProvider>(context, listen: false)
+        .firebaseUser;
+    
+    if (user == null) {
+      Navigator.of(context).pushNamed('/login');
+      return;
+    }
+
+    if (user.uid == widget.property.ownerId) {
+       ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Vous ne pouvez pas vous envoyer de message à vous-même.')),
+       );
+       return;
+    }
+
+    setState(() => _isMessageLoading = true);
+    try {
+      // Récupérer ou créer la conversation
+      final conversationId = await MessagesService()
+          .getOrCreateConversation(widget.property.ownerId, widget.property.id);
+      
+      if (!mounted) return;
+      
+      // Naviguer vers la page de conversation
+      Navigator.of(context).pushNamed(
+        ConversationPage.routeName,
+        arguments: {
+          'conversationId': conversationId,
+          'property': widget.property,
+        },
+      );
+    } catch (e) {
+      debugPrint('Erreur création conversation: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Impossible de démarrer la conversation')),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isMessageLoading = false);
+      }
+    }
+  }
+
   Widget _featureChip(IconData icon, String label) {
     return Card(
       child: Padding(
@@ -108,6 +167,147 @@ Découvrez cette propriété sur Allô Bailleur !
             Icon(icon, size: 18),
             const SizedBox(width: 8),
             Text(label)
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReviewsSection() {
+    return Consumer<ReviewProvider>(
+      builder: (context, reviewProvider, child) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('Avis',
+                    style:
+                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                TextButton(
+                  onPressed: () => _showAddReviewDialog(context),
+                  child: const Text('Ajouter un avis'),
+                ),
+              ],
+            ),
+            if (reviewProvider.isLoading)
+              const Center(child: CircularProgressIndicator())
+            else if (reviewProvider.reviews.isEmpty)
+              const Text('Aucun avis pour le moment.')
+            else
+              Column(
+                children: [
+                  Row(
+                    children: [
+                      const Icon(Icons.star, color: Colors.amber),
+                      Text(
+                          '${reviewProvider.averageRating.toStringAsFixed(1)} (${reviewProvider.reviews.length} avis)'),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  ...reviewProvider.reviews.map((review) => Card(
+                        child: Padding(
+                          padding: const EdgeInsets.all(12),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(review.userName ?? 'Anonyme',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold)),
+                                  const Spacer(),
+                                  ...List.generate(
+                                      5,
+                                      (i) => Icon(
+                                            i < review.rating
+                                                ? Icons.star
+                                                : Icons.star_border,
+                                            color: Colors.amber,
+                                            size: 16,
+                                          )),
+                                ],
+                              ),
+                              if (review.comment != null) ...[
+                                const SizedBox(height: 8),
+                                Text(review.comment!),
+                              ],
+                              const SizedBox(height: 4),
+                              Text(
+                                '${review.createdAt.day}/${review.createdAt.month}/${review.createdAt.year}',
+                                style: const TextStyle(
+                                    color: Colors.grey, fontSize: 12),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )),
+                ],
+              ),
+          ],
+        );
+      },
+    );
+  }
+
+  void _showAddReviewDialog(BuildContext context) {
+    double rating = 5.0;
+    final commentController = TextEditingController();
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setState) => AlertDialog(
+          title: const Text('Ajouter un avis'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Note:'),
+              Slider(
+                value: rating,
+                min: 1,
+                max: 5,
+                divisions: 4,
+                label: rating.toString(),
+                onChanged: (value) => setState(() => rating = value),
+              ),
+              TextField(
+                controller: commentController,
+                decoration:
+                    const InputDecoration(labelText: 'Commentaire (optionnel)'),
+                maxLines: 3,
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Annuler'),
+            ),
+            TextButton(
+              onPressed: () async {
+                final success = await context.read<ReviewProvider>().addReview(
+                      widget.property.id,
+                      rating,
+                      commentController.text.isEmpty
+                          ? null
+                          : commentController.text,
+                    );
+                Navigator.of(context).pop();
+                if (success) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Avis ajouté avec succès')),
+                  );
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                        content: Text('Erreur lors de l\'ajout de l\'avis')),
+                  );
+                }
+              },
+              child: const Text('Ajouter'),
+            ),
           ],
         ),
       ),
@@ -161,19 +361,22 @@ Découvrez cette propriété sur Allô Bailleur !
             if (widget.property.imageUrls.isNotEmpty)
               Column(
                 children: [
-                  SizedBox(
-                    height: 260,
-                    child: PageView.builder(
-                      controller: _imagePageController,
-                      itemCount: widget.property.imageUrls.length,
-                      onPageChanged: (i) =>
-                          setState(() => _currentImageIndex = i),
-                      itemBuilder: (context, i) => ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          widget.property.imageUrls[i],
-                          fit: BoxFit.cover,
-                          width: double.infinity,
+                  Hero(
+                    tag: 'property-${widget.property.id}',
+                    child: SizedBox(
+                      height: 260,
+                      child: PageView.builder(
+                        controller: _imagePageController,
+                        itemCount: widget.property.imageUrls.length,
+                        onPageChanged: (i) =>
+                            setState(() => _currentImageIndex = i),
+                        itemBuilder: (context, i) => ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            widget.property.imageUrls[i],
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                          ),
                         ),
                       ),
                     ),
@@ -245,6 +448,8 @@ Découvrez cette propriété sur Allô Bailleur !
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Text(widget.property.description),
+            const SizedBox(height: 16),
+            _buildReviewsSection(),
             const SizedBox(height: 32),
           ],
         ),
@@ -252,171 +457,37 @@ Découvrez cette propriété sur Allô Bailleur !
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(12),
-          child: ElevatedButton(
-            onPressed: () {
-              Navigator.of(context).push(MaterialPageRoute(
-                builder: (_) => BookingPage(property: widget.property),
-              ));
-            },
-            child: const Text('Réserver'),
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: _isMessageLoading 
+                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) 
+                      : const Icon(Icons.chat_bubble_outline),
+                  onPressed: _isMessageLoading ? null : _handleMessageButton,
+                  label: const Text('Message'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton(
+                  onPressed: () {
+                    final user =
+                        Provider.of<app_auth.AuthProvider>(context, listen: false)
+                            .firebaseUser;
+                    if (user == null) {
+                      Navigator.of(context).pushNamed('/login');
+                    } else {
+                      Navigator.of(context).push(MaterialPageRoute(
+                        builder: (_) => BookingPage(property: widget.property),
+                      ));
+                    }
+                  },
+                  child: const Text('Réserver'),
+                ),
+              ),
+            ],
           ),
-        ),
-      ),
-    );
-  }
-}
-
-class BookingPage extends StatefulWidget {
-  static const String routeName = '/booking';
-  final Property property;
-
-  const BookingPage({super.key, required this.property});
-
-  @override
-  State<BookingPage> createState() => _BookingPageState();
-}
-
-class _BookingPageState extends State<BookingPage> {
-  DateTime? _checkInDate;
-  DateTime? _checkOutDate;
-  bool _isLoading = false;
-
-  Future<void> _selectDate(BuildContext context, bool isCheckIn) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-    );
-    if (picked != null) {
-      setState(() {
-        if (isCheckIn) {
-          _checkInDate = picked;
-          if (_checkOutDate != null && _checkOutDate!.isBefore(picked)) {
-            _checkOutDate = null;
-          }
-        } else {
-          _checkOutDate = picked;
-        }
-      });
-    }
-  }
-
-  Future<void> _confirmBooking() async {
-    if (_checkInDate == null || _checkOutDate == null) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Veuillez sélectionner les dates')));
-      }
-      return;
-    }
-    if (_checkOutDate!.isBefore(_checkInDate!)) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Date de départ invalide')));
-      }
-      return;
-    }
-
-    setState(() => _isLoading = true);
-    final messenger = ScaffoldMessenger.of(context);
-    final navigator = Navigator.of(context);
-    try {
-      final nights = _checkOutDate!.difference(_checkInDate!).inDays;
-      final property = widget.property; // capture widget values before awaits
-      final totalPrice = nights > 0 ? property.price * nights : 0.0;
-      // Paiement des locations géré hors-plateforme. PlatformFee = 0.
-
-      final bookingProvider =
-          Provider.of<BookingProvider>(context, listen: false);
-      final authProvider =
-          Provider.of<app_auth.AuthProvider>(context, listen: false);
-      final guestId = authProvider.firebaseUser?.uid ?? '';
-
-      final booking = Booking(
-        id: '',
-        guestId: guestId,
-        propertyId: property.id,
-        hostId: property.ownerId,
-        checkInDate: _checkInDate!,
-        checkOutDate: _checkOutDate!,
-        totalPrice: totalPrice.toDouble(),
-        // Sur la plateforme, nous ne prenons pas de commission sur le montant
-        // de la location. platformFee = 0, hostPayout = totalPrice.
-        platformFee: 0.0,
-        hostPayout: totalPrice.toDouble(),
-        status: 'pending', // Statut pending — l'hôte confirmera la réservation
-        createdAt: DateTime.now(),
-        updatedAt: DateTime.now(),
-      );
-
-      // Capture propertyProvider before awaiting any async operations
-      // to avoid using BuildContext across async gaps.
-      final propertyProvider =
-          Provider.of<PropertyProvider>(context, listen: false);
-
-      final created = await bookingProvider.createBooking(booking);
-      if (!created) {
-        if (mounted) {
-          messenger.showSnackBar(SnackBar(
-              content: Text('Erreur: ${bookingProvider.errorMessage ?? ''}')));
-        }
-        return;
-      }
-
-      // Pas de paiement via la plateforme pour la location —
-      // l'hôte et le client finalisent le paiement hors-plateforme.
-      await propertyProvider.completeRental(property);
-
-      if (mounted) {
-        messenger.showSnackBar(
-            const SnackBar(content: Text('Réservation confirmée')));
-        navigator.popUntil((route) => route.isFirst);
-      }
-    } catch (e) {
-      if (mounted) {
-        messenger.showSnackBar(SnackBar(content: Text('Erreur: $e')));
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Réserver')),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            ListTile(
-              title: const Text('Date d\'arrivée'),
-              subtitle: Text(_checkInDate?.toLocal().toString().split(' ')[0] ??
-                  'Sélectionner'),
-              trailing: ElevatedButton(
-                  onPressed: () => _selectDate(context, true),
-                  child: const Text('Choisir')),
-            ),
-            ListTile(
-              title: const Text('Date de départ'),
-              subtitle: Text(
-                  _checkOutDate?.toLocal().toString().split(' ')[0] ??
-                      'Sélectionner'),
-              trailing: ElevatedButton(
-                  onPressed: () => _selectDate(context, false),
-                  child: const Text('Choisir')),
-            ),
-            const SizedBox(height: 24),
-            ElevatedButton(
-                onPressed: _isLoading ? null : _confirmBooking,
-                child: _isLoading
-                    ? const CircularProgressIndicator()
-                    : const Text('Confirmer la réservation')),
-          ],
         ),
       ),
     );

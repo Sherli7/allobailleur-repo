@@ -67,7 +67,7 @@ class _TripsPageState extends State<TripsPage> {
                   leading: const Icon(Icons.hotel, color: Colors.green),
                   title: Text('Annonce: ${booking.propertyId}'),
                   subtitle: Text(
-                      '${booking.checkInDate.toLocal().toIso8601String().split("T").first} - ${booking.checkOutDate.toLocal().toIso8601String().split("T").first} (${booking.nights} nuits)'),
+                      '${booking.checkInDate.toLocal().toIso8601String().split("T").first} - ${booking.checkOutDate?.toLocal().toIso8601String().split("T").first ?? 'Indéterminé'} (${booking.nights} nuits)'),
                   trailing: Text(booking.totalPrice.toStringAsFixed(0)),
                   onTap: () {
                     // Navigue vers détails booking

@@ -4,7 +4,7 @@ class Booking {
   final String propertyId;
   final String hostId;
   final DateTime checkInDate;
-  final DateTime checkOutDate;
+  final DateTime? checkOutDate;
   final double totalPrice;
   final double platformFee; // Commission de la plateforme (ex: 3%)
   final double hostPayout; // Montant versé à l'hôte (totalPrice - platformFee)
@@ -18,7 +18,7 @@ class Booking {
     required this.propertyId,
     required this.hostId,
     required this.checkInDate,
-    required this.checkOutDate,
+    this.checkOutDate,
     required this.totalPrice,
     required this.platformFee,
     required this.hostPayout,
@@ -43,7 +43,7 @@ class Booking {
           : DateTime.now(),
       checkOutDate: data['check_out_date'] != null
           ? DateTime.parse(data['check_out_date'])
-          : DateTime.now(),
+          : null,
       totalPrice: totalPrice,
       platformFee: platformFee,
       hostPayout: hostPayout,
@@ -63,7 +63,7 @@ class Booking {
       'property_id': propertyId,
       'host_id': hostId,
       'check_in_date': checkInDate.toIso8601String(),
-      'check_out_date': checkOutDate.toIso8601String(),
+      'check_out_date': checkOutDate?.toIso8601String(),
       'total_price': totalPrice,
       'platform_fee': platformFee,
       'host_payout': hostPayout,
@@ -107,5 +107,7 @@ class Booking {
     );
   }
 
-  int get nights => checkOutDate.difference(checkInDate).inDays;
+  int get nights => checkOutDate != null
+      ? checkOutDate!.difference(checkInDate).inDays
+      : 30; // Default for indefinite
 }

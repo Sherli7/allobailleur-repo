@@ -98,6 +98,10 @@ class AuthProvider extends ChangeNotifier {
     String bio = '',
     String role = 'tenant',
   }) async {
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
+
     final res = await _authService.signUp(
       email: email,
       password: password,
@@ -108,12 +112,19 @@ class AuthProvider extends ChangeNotifier {
       bio: bio,
       role: role,
     );
+
+    _isLoading = false;
+
     if (res['success'] == true) {
       final fb = _authService.currentUser;
       if (fb != null) _user = await _authService.getUserData(fb.uid);
       notifyListeners();
       return true;
     }
+
+    _errorMessage =
+        res['message'] as String? ?? 'Erreur lors de l\'inscription';
+    notifyListeners();
     return false;
   }
 

@@ -14,7 +14,7 @@ import 'package:rent_house/Screens/viewProfilePage.dart';
 import 'package:rent_house/Screens/createPropertyPage.dart';
 import 'package:rent_house/Screens/searchPage.dart';
 import 'package:rent_house/Screens/propertyDetailsPage.dart'
-    show PropertyDetailsPage, BookingPage;
+    show PropertyDetailsPage;
 import 'package:rent_house/Screens/viewPostingPage.dart';
 import 'package:rent_house/Screens/editPropertyPage.dart';
 import 'package:rent_house/Screens/favoritesPage.dart';
@@ -86,11 +86,6 @@ class MyApp extends StatelessWidget {
       case PropertyDetailsPage.routeName:
         page = args != null
             ? PropertyDetailsPage(property: args)
-            : _errorPage('Propriété non trouvée');
-        break;
-      case BookingPage.routeName:
-        page = args != null
-            ? BookingPage(property: args)
             : _errorPage('Propriété non trouvée');
         break;
       case ViewPostingPage.routeName:

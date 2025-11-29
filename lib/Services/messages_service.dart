@@ -6,11 +6,14 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:rent_house/Models/conversation.dart';
 import 'package:rent_house/Models/message.dart';
+import 'package:rent_house/Services/NotificationService.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class MessagesService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseStorage _storage = FirebaseStorage.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
+  final SupabaseClient _supabase = Supabase.instance.client;
 
   CollectionReference<Map<String, dynamic>> _getConversationsRef(
           String userId) =>
@@ -118,6 +121,91 @@ class MessagesService {
     }
 
     await batch.commit();
+
+    // Envoyer notification
+    if (otherUserId != null) {
+      _sendNotificationToUser(senderId, otherUserId, text, conversationId);
+    }
+  }
+
+  /// Récupère le token FCM de l'utilisateur destinataire depuis Supabase et envoie la notification
+  Future<void> _sendNotificationToUser(String senderId, String receiverId, String messageText, String conversationId) async {
+    try {
+      // 1. Récupérer le token FCM du destinataire
+      final response = await _supabase
+          .from('users')
+          .select('fcmToken')
+          .eq('uid', receiverId)
+          .maybeSingle();
+      
+      if (response == null || response['fcmToken'] == null) {
+        debugPrint("Aucun token FCM trouvé pour l'utilisateur $receiverId");
+        return;
+      }
+
+      final fcmToken = response['fcmToken'] as String;
+
+      // 2. Récupérer le nom de l'expéditeur
+      // On peut essayer via Supabase d'abord (plus fiable si les profils sont là-bas)
+      String senderName = "Nouvelle message";
+      try {
+        final senderProfile = await _supabase
+            .from('users')
+            .select('firstName, lastName')
+            .eq('uid', senderId)
+            .maybeSingle();
+            
+        if (senderProfile != null) {
+           senderName = "${senderProfile['firstName']} ${senderProfile['lastName']}";
+        } else {
+           // Fallback Firestore
+           senderName = await _getUserName(senderId);
+        }
+      } catch (_) {
+        senderName = await _getUserName(senderId);
+      }
+
+      // 3. Envoyer la notification
+      await NotificationService().sendPushNotification(
+        fcmToken: fcmToken,
+        title: senderName,
+        body: messageText,
+        data: {
+          'type': 'chat_message',
+          'conversationId': conversationId,
+          'senderId': senderId,
+        },
+      );
+
+    } catch (e) {
+      debugPrint("Erreur lors de l'envoi de la notification: $e");
+    }
+  }
+
+  /// Récupère ou crée une conversation pour une propriété donnée
+  /// Vérifie d'abord si une conversation existe déjà entre les deux utilisateurs pour cette propriété
+  Future<String> getOrCreateConversation(String otherUserId, String propertyId) async {
+     final currentUserId = _auth.currentUser!.uid;
+     
+     // 1. Vérifier si une conversation existe déjà
+     // Ceci est une approche simplifiée. Idéalement, il faudrait une requête composée ou une structure de données plus adaptée.
+     // On va parcourir les conversations de l'utilisateur courant.
+     final conversationsSnap = await _getConversationsRef(currentUserId).get();
+     
+     for (var doc in conversationsSnap.docs) {
+       final data = doc.data();
+       if (data['otherUserId'] == otherUserId) {
+         // On vérifie si c'est pour la même propriété
+         final convId = doc.id;
+         final convDoc = await _firestore.collection('conversations').doc(convId).get();
+         if (convDoc.exists && convDoc.data()?['propertyId'] == propertyId) {
+           return convId;
+         }
+       }
+     }
+     
+     // 2. Si aucune conversation n'existe, en créer une nouvelle
+     return await createConversation(otherUserId, propertyId);
   }
 
   /// Crée une nouvelle conversation (ex. quand contact via annonce)

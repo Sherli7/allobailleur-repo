@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:rent_house/Models/property.dart';
 import 'package:rent_house/Providers/property_provider.dart';
-import 'package:rent_house/Screens/conversation_page.dart';
 import 'package:rent_house/Screens/propertyDetailsPage.dart';
+import 'package:rent_house/Screens/conversation_page.dart';
+import 'package:rent_house/Services/NaturalSearchService.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class SearchPage extends StatefulWidget {
   static const String routeName = '/search';
@@ -15,20 +18,23 @@ class SearchPage extends StatefulWidget {
 
 class _SearchPageState extends State<SearchPage> {
   final TextEditingController _searchController = TextEditingController();
-  double _minPrice = 0; // Pas de filtre prix minimum initial
-  double _maxPrice =
-      1000000; // Prix maximum élevé pour inclure toutes les propriétés
+  final NaturalSearchService _naturalSearchService = NaturalSearchService();
+
+  double _minPrice = 0;
+  double _maxPrice = 1000000;
   String? _selectedType;
   int _selectedRooms = 0;
-  List<Property> _filteredProperties = [];
+  List<Property> _searchedProperties = [];
+  bool _isSearching = false;
+
+  // Mode de recherche: 'local' (filtres classiques) ou 'natural' (requête API via NaturalSearchService)
+  bool _isNaturalSearch = false;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context
-          .read<PropertyProvider?>()
-          ?.fetchProperties(); // Assume cette méthode existe
+      context.read<PropertyProvider?>()?.fetchProperties();
     });
   }
 
@@ -39,62 +45,109 @@ class _SearchPageState extends State<SearchPage> {
         title: TextField(
           controller: _searchController,
           decoration: const InputDecoration(
-            hintText: 'Rechercher...',
+            hintText: 'Ex: Studio à Mendong < 50000...',
             border: InputBorder.none,
             hintStyle: TextStyle(color: Colors.grey),
           ),
-          onChanged: (value) => _filterProperties(),
+          onSubmitted: (value) => _performSearch(),
         ),
         actions: [
+          IconButton(
+            icon: const Icon(Icons.search),
+            onPressed: _performSearch,
+          ),
           IconButton(
             icon: const Icon(Icons.tune),
             onPressed: _showFilters,
           ),
         ],
       ),
-      body: Consumer<PropertyProvider>(
-        builder: (context, propertyProvider, child) {
-          if (propertyProvider.isLoading) {
-            return const Center(child: CircularProgressIndicator());
-          }
+      body: _isSearching
+          ? const Center(child: CircularProgressIndicator())
+          : Consumer<PropertyProvider>(
+              builder: (context, propertyProvider, child) {
+                
+                final List<Property> propertiesToDisplay;
+                
+                if (_isNaturalSearch) {
+                  // Si recherche naturelle activée, on utilise les résultats de l'API
+                  propertiesToDisplay = _searchedProperties;
+                } else {
+                   // Sinon on filtre localement la liste du provider
+                   final allProperties = propertyProvider.properties ?? [];
+                   propertiesToDisplay = _applyLocalFilters(allProperties);
+                }
 
-          // Debug logs
-          debugPrint(
-              'PropertyProvider properties: ${propertyProvider.properties?.length ?? 0} items');
-          if (propertyProvider.properties != null) {
-            for (var prop in propertyProvider.properties!) {
-              debugPrint(
-                  'Property: ${prop.id} - ${prop.title} - Price: ${prop.price} - Status: ${prop.status}');
-            }
-          }
+                if (propertiesToDisplay.isEmpty) {
+                  return Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.search_off, size: 64, color: Colors.grey),
+                          const SizedBox(height: 16),
+                          const Text(
+                            'Aucun logement trouvé',
+                            style: TextStyle(fontSize: 18, color: Colors.grey),
+                          ),
+                          if (_isNaturalSearch)
+                            TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  _isNaturalSearch = false;
+                                  _searchController.clear();
+                                });
+                              }, 
+                              child: const Text('Voir toutes les annonces')
+                            )
+                        ],
+                      ),
+                    ),
+                  );
+                }
 
-          _filteredProperties =
-              _applyFilters(propertyProvider.properties ?? []);
-          debugPrint(
-              'Filtered properties: ${_filteredProperties.length} items');
-
-          if (_filteredProperties.isEmpty) {
-            return const Center(child: Text('Aucun logement trouvé'));
-          }
-          return ListView.builder(
-            itemCount: _filteredProperties.length,
-            itemBuilder: (context, index) {
-              final property = _filteredProperties[index];
-              return _buildPropertyCard(property);
-            },
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _loadMore(), // Pour "Charger plus d'annonces"
-        child: const Icon(Icons.refresh),
-      ),
+                return ListView.builder(
+                  itemCount: propertiesToDisplay.length,
+                  itemBuilder: (context, index) {
+                    final property = propertiesToDisplay[index];
+                    return _buildPropertyCard(property);
+                  },
+                );
+              },
+            ),
     );
+  }
+
+  /// Lance la recherche
+  Future<void> _performSearch() async {
+    final query = _searchController.text.trim();
+    if (query.isEmpty) {
+      setState(() {
+        _isNaturalSearch = false;
+      });
+      return;
+    }
+
+    setState(() => _isSearching = true);
+
+    // Si la requête semble être une phrase complexe, on utilise le service naturel
+    // Sinon (juste un mot), on pourrait filtrer localement, mais utilisons le service pour la cohérence
+    // ou mixons les deux. Ici, on priorise le service naturel qui interroge Supabase.
+    
+    final results = await _naturalSearchService.searchProperties(query);
+    
+    setState(() {
+      _searchedProperties = results;
+      _isNaturalSearch = true;
+      _isSearching = false;
+    });
   }
 
   void _showFilters() {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       builder: (context) => _FiltersBottomSheet(
         minPrice: _minPrice,
         maxPrice: _maxPrice,
@@ -106,167 +159,77 @@ class _SearchPageState extends State<SearchPage> {
             _maxPrice = maxP;
             _selectedType = type;
             _selectedRooms = rooms;
+            // Si on applique des filtres manuels, on désactive la recherche naturelle pure
+            // et on applique ces filtres sur les propriétés locales
+            _isNaturalSearch = false; 
           });
-          _filterProperties();
           Navigator.pop(context);
         },
       ),
     );
   }
 
-  List<Property> _applyFilters(List<Property> allProperties) {
-    debugPrint('Applying filters to ${allProperties.length} properties');
-    debugPrint(
-        'Filter criteria: minPrice=$_minPrice, maxPrice=$_maxPrice, type=$_selectedType, rooms=$_selectedRooms, search="${_searchController.text}"');
-
-    // Parse natural language query
-    final parsedFilters = _parseNaturalLanguageQuery(_searchController.text);
-
+  /// Filtres classiques (Slider prix, Chips type...) appliqués sur la liste locale
+  List<Property> _applyLocalFilters(List<Property> allProperties) {
     return allProperties.where((p) {
-      // Existing filters
-      if (p.price < _minPrice || p.price > _maxPrice) {
-        debugPrint(
-            'Property ${p.id} filtered out by price: ${p.price} not in [$_minPrice, $_maxPrice]');
-        return false;
-      }
-      if (_selectedType != null && p.type != _selectedType) {
-        debugPrint(
-            'Property ${p.id} filtered out by type: ${p.type} != $_selectedType');
-        return false;
-      }
-      if (_selectedRooms > 0 && p.rooms != _selectedRooms) {
-        debugPrint(
-            'Property ${p.id} filtered out by rooms: ${p.rooms} != $_selectedRooms');
-        return false;
-      }
+      // Filtre Prix
+      if (p.price < _minPrice || p.price > _maxPrice) return false;
+      
+      // Filtre Type
+      if (_selectedType != null && p.type != _selectedType) return false;
+      
+      // Filtre Chambres
+      if (_selectedRooms > 0 && p.rooms != _selectedRooms) return false;
 
-      // Natural language filters
-      if (parsedFilters['maxPrice'] != null &&
-          p.price > parsedFilters['maxPrice']) {
-        return false;
-      }
-      if (parsedFilters['type'] != null &&
-          !p.type.toLowerCase().contains(parsedFilters['type'].toLowerCase())) {
-        return false;
-      }
-      if (parsedFilters['rooms'] != null && p.rooms != parsedFilters['rooms']) {
-        return false;
-      }
-      if (parsedFilters['location'] != null &&
-          !(p.address
-                  ?.toLowerCase()
-                  .contains(parsedFilters['location'].toLowerCase()) ??
-              false) &&
-          !p.title
-              .toLowerCase()
-              .contains(parsedFilters['location'].toLowerCase())) {
-        return false;
-      }
-
-      // General search in title and description
-      if (_searchController.text.isNotEmpty) {
-        final query = _searchController.text.toLowerCase();
-        final titleMatch = p.title.toLowerCase().contains(query);
-        final addressMatch =
-            (p.address?.toLowerCase().contains(query) ?? false);
-        final descriptionMatch = p.description.toLowerCase().contains(query);
-        if (!titleMatch && !addressMatch && !descriptionMatch) {
-          return false;
-        }
+      // Filtre Texte simple si on n'est pas en mode "Natural Search" mais qu'il y a du texte
+      // (Cas où l'utilisateur tape juste un mot clé sans lancer la grosse recherche API)
+      if (!_isNaturalSearch && _searchController.text.isNotEmpty) {
+         final query = _searchController.text.toLowerCase();
+         final match = p.title.toLowerCase().contains(query) ||
+                       p.description.toLowerCase().contains(query) ||
+                       (p.address?.toLowerCase().contains(query) ?? false) ||
+                       p.city.toLowerCase().contains(query);
+         if (!match) return false;
       }
 
       return true;
     }).toList();
   }
 
-  Map<String, dynamic> _parseNaturalLanguageQuery(String query) {
-    final filters = <String, dynamic>{};
+  Widget _highlightText(String text, String query) {
+    if (query.isEmpty) return Text(text);
+
     final words = query.toLowerCase().split(RegExp(r'\s+'));
+    // On ne surligne que les mots significatifs (>2 lettres)
+    final validWords = words.where((w) => w.length > 2).toList();
+    
+    if (validWords.isEmpty) return Text(text);
 
-    // Keywords for types
-    const typeKeywords = {
-      'appartement': 'Appartement',
-      'maison': 'Maison',
-      'studio': 'Studio',
-      'duplex': 'Duplex',
-      'loft': 'Loft',
-    };
+    String lowerText = text.toLowerCase();
+    List<TextSpan> spans = [];
+    int start = 0;
 
-    // Keywords for rooms
-    const roomKeywords = {
-      '1': 1,
-      '2': 2,
-      '3': 3,
-      '4': 4,
-      '5': 5,
-      'un': 1,
-      'deux': 2,
-      'trois': 3,
-      'quatre': 4,
-      'cinq': 5,
-      'chambre': null, // Just indicator
-      'pièces': null,
-      'pièce': null,
-    };
-
-    // Price keywords
-    const priceKeywords = ['sous', 'moins de', 'maximum', 'max', '€', 'euros'];
-
-    for (final word in words) {
-      // Check for type
-      if (typeKeywords.containsKey(word)) {
-        filters['type'] = typeKeywords[word];
-      }
-
-      // Check for rooms
-      if (roomKeywords.containsKey(word)) {
-        final rooms = roomKeywords[word];
-        if (rooms != null) {
-          filters['rooms'] = rooms;
-        }
-      }
-
-      // Check for price
-      if (priceKeywords.any((kw) => word.contains(kw))) {
-        // Look for number after
-        final index = words.indexOf(word);
-        for (int i = index + 1; i < words.length; i++) {
-          final numMatch = RegExp(r'(\d+)').firstMatch(words[i]);
-          if (numMatch != null) {
-            filters['maxPrice'] = double.tryParse(numMatch.group(1)!);
-            break;
-          }
-        }
-      }
-
-      // Assume location is any word not matching above (simple heuristic)
-      if (!typeKeywords.containsKey(word) &&
-          !roomKeywords.containsKey(word) &&
-          !priceKeywords.any((kw) => word.contains(kw)) &&
-          word.length > 2) {
-        filters['location'] = word;
-      }
+    // Pour simplifier, on cherche la première occurrence de n'importe quel mot clé
+    // Une implémentation plus robuste découperait le texte plus finement.
+    // Ici on fait simple : on affiche le texte tel quel, sauf si on trouve un match exact.
+    
+    // Approche simple: split par mot et reconstruction
+    final textWords = text.split(' ');
+    for(var word in textWords) {
+       bool isMatch = validWords.any((q) => word.toLowerCase().contains(q));
+       spans.add(TextSpan(
+         text: '$word ',
+         style: isMatch 
+           ? const TextStyle(fontWeight: FontWeight.bold, backgroundColor: Colors.yellow)
+           : const TextStyle(color: Colors.black),
+       ));
     }
 
-    return filters;
-  }
-
-  void _filterProperties() {
-    setState(() {}); // Trigger rebuild
-  }
-
-  void _loadMore() {
-    // Implémente pagination via Provider
-    context.read<PropertyProvider?>()?.loadMoreProperties();
+    return RichText(text: TextSpan(children: spans));
   }
 
   Widget _buildPropertyCard(Property property) {
-    final imageUrl =
-        property.imageUrls.isNotEmpty ? property.imageUrls.first : null;
-
-    // Debug: Afficher les informations sur les images
-    debugPrint(
-        'Property ${property.id}: imageUrls = ${property.imageUrls}, first imageUrl = $imageUrl');
+    final imageUrl = property.imageUrls.isNotEmpty ? property.imageUrls.first : null;
 
     return GestureDetector(
       onTap: () => Navigator.of(context).pushNamed(
@@ -275,24 +238,30 @@ class _SearchPageState extends State<SearchPage> {
       ),
       child: Card(
         margin: const EdgeInsets.all(8),
+        elevation: 2,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Image
             Stack(
               children: [
                 ClipRRect(
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(8)),
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
                   child: imageUrl != null
                       ? Hero(
                           tag: 'property-image-${property.id}',
-                          child: Image.network(
-                            imageUrl,
+                          child: CachedNetworkImage(
+                            imageUrl: imageUrl,
                             height: 200,
                             width: double.infinity,
                             fit: BoxFit.cover,
-                            errorBuilder: (context, error, stackTrace) =>
-                                Container(
+                            placeholder: (context, url) => Container(
+                              height: 200,
+                              color: Colors.grey[300],
+                              child: const Center(child: CircularProgressIndicator()),
+                            ),
+                            errorWidget: (context, url, error) => Container(
                               height: 200,
                               color: Colors.grey[300],
                               child: const Icon(Icons.image_not_supported),
@@ -302,47 +271,69 @@ class _SearchPageState extends State<SearchPage> {
                       : Container(
                           height: 200,
                           color: Colors.grey[300],
-                          child: const Icon(Icons.image_not_supported),
+                          child: const Icon(Icons.image_not_supported, size: 50),
                         ),
                 ),
                 if (property.isNew)
                   const Positioned(
-                    top: 8,
-                    left: 8,
+                    top: 12,
+                    left: 12,
                     child: Chip(
-                        label: Text('Nouveau',
-                            style: TextStyle(color: Colors.white)),
-                        backgroundColor: Colors.green),
+                      label: Text('Nouveau', style: TextStyle(color: Colors.white, fontSize: 10)),
+                      backgroundColor: Colors.green,
+                      padding: EdgeInsets.zero,
+                      visualDensity: VisualDensity.compact,
+                    ),
                   ),
               ],
             ),
+            
+            // Détails
             Padding(
               padding: const EdgeInsets.all(12),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(property.title,
-                      style: Theme.of(context).textTheme.titleMedium),
-                  Text(
-                      '${property.city}, ${property.distance ?? 0} km du centre'),
-                  Text('${property.rooms} pièces • ${property.surface} m²'),
+                  _highlightText(property.title, _searchController.text),
+                  const SizedBox(height: 4),
+                  Text('${property.city} • ${property.type}'),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      const Icon(Icons.bed, size: 16, color: Colors.grey),
+                      const SizedBox(width: 4),
+                      Text('${property.rooms} ch.'),
+                      const SizedBox(width: 12),
+                      const Icon(Icons.bathtub, size: 16, color: Colors.grey),
+                      const SizedBox(width: 4),
+                      Text('${property.bathrooms} sdb.'),
+                      const SizedBox(width: 12),
+                      const Icon(Icons.square_foot, size: 16, color: Colors.grey),
+                      const SizedBox(width: 4),
+                      Text('${property.surface ?? 0} m²'),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text('${property.price} FCFA/mois',
-                          style: Theme.of(context)
-                              .textTheme
-                              .titleLarge
-                              ?.copyWith(fontWeight: FontWeight.bold)),
-                      Row(
-                        children: [
-                          IconButton(
-                              icon: const Icon(Icons.favorite_border),
-                              onPressed: () => _toggleFavorite(property)),
-                          IconButton(
-                              icon: const Icon(Icons.chat_bubble_outline),
-                              onPressed: () => _contactOwner(property)),
-                        ],
+                      Text(
+                        '${property.price.toStringAsFixed(0)} ${property.currency}/mois',
+                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: Theme.of(context).primaryColor,
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(
+                          context.read<PropertyProvider>().favorites?.any((p) => p.id == property.id) ?? false
+                              ? Icons.favorite
+                              : Icons.favorite_border,
+                          color: context.read<PropertyProvider>().favorites?.any((p) => p.id == property.id) ?? false
+                              ? Colors.red
+                              : Colors.grey,
+                        ),
+                        onPressed: () => context.read<PropertyProvider?>()?.toggleFavorite(property),
                       ),
                     ],
                   ),
@@ -355,16 +346,6 @@ class _SearchPageState extends State<SearchPage> {
     );
   }
 
-  void _toggleFavorite(Property property) {
-    context.read<PropertyProvider?>()?.toggleFavorite(property);
-  }
-
-  void _contactOwner(Property property) {
-    // Nav vers Messages ou ConversationPage
-    Navigator.pushNamed(context, ConversationPage.routeName,
-        arguments: property);
-  }
-
   @override
   void dispose() {
     _searchController.dispose();
@@ -372,6 +353,7 @@ class _SearchPageState extends State<SearchPage> {
   }
 }
 
+// Bottom Sheet pour les filtres manuels (inchangé ou adapté)
 class _FiltersBottomSheet extends StatefulWidget {
   final double minPrice;
   final double maxPrice;
@@ -395,318 +377,95 @@ class _FiltersBottomSheetState extends State<_FiltersBottomSheet> {
   late RangeValues _priceRange;
   late String? _selectedType;
   late int _selectedRooms;
-  late double _minPriceLimit;
-  late double _maxPriceLimit;
+  final double _limitMax = 2000000;
 
   @override
   void initState() {
     super.initState();
-    // Définir les limites dynamiques basées sur les données disponibles
-    _minPriceLimit = 0;
-    _maxPriceLimit = 1000000; // Prix maximum possible
-
-    // S'assurer que les valeurs initiales sont dans les limites
-    double startPrice = widget.minPrice.clamp(_minPriceLimit, _maxPriceLimit);
-    double endPrice = widget.maxPrice.clamp(_minPriceLimit, _maxPriceLimit);
-
-    // Si les valeurs sont identiques ou invalides, utiliser une plage par défaut
-    if (startPrice >= endPrice) {
-      startPrice = _minPriceLimit;
-      endPrice = _maxPriceLimit;
-    }
-
-    _priceRange = RangeValues(startPrice, endPrice);
+    _priceRange = RangeValues(
+        widget.minPrice.clamp(0, _limitMax), 
+        widget.maxPrice.clamp(0, _limitMax)
+    );
     _selectedType = widget.selectedType;
     _selectedRooms = widget.selectedRooms;
   }
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      child: Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Header avec titre et bouton fermer
-            Row(
-              children: [
-                const Text(
-                  'Filtres de recherche',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Spacer(),
-                IconButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  icon: const Icon(Icons.close),
-                  style: IconButton.styleFrom(
-                    backgroundColor: Colors.grey[100],
-                  ),
-                ),
-              ],
+    return Container(
+      padding: const EdgeInsets.all(24),
+      height: MediaQuery.of(context).size.height * 0.8,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('Filtres', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+              IconButton(onPressed: () => Navigator.pop(context), icon: const Icon(Icons.close))
+            ],
+          ),
+          const Divider(),
+          const Text('Fourchette de prix', style: TextStyle(fontWeight: FontWeight.w600)),
+          RangeSlider(
+            values: _priceRange,
+            min: 0,
+            max: _limitMax,
+            divisions: 20,
+            labels: RangeLabels(
+              '${_priceRange.start.round()}', 
+              '${_priceRange.end.round()}'
             ),
-            const SizedBox(height: 24),
+            onChanged: (val) => setState(() => _priceRange = val),
+          ),
+          Text('${_priceRange.start.round()} FCFA - ${_priceRange.end.round()} FCFA'),
+          
+          const SizedBox(height: 20),
+          const Text('Type de propriété', style: TextStyle(fontWeight: FontWeight.w600)),
+          Wrap(
+            spacing: 8,
+            children: ['Appartement', 'Maison', 'Studio', 'Bureau'].map((type) {
+              return ChoiceChip(
+                label: Text(type),
+                selected: _selectedType == type,
+                onSelected: (selected) => setState(() => _selectedType = selected ? type : null),
+              );
+            }).toList(),
+          ),
 
-            // Section Prix
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[200]!),
+          const SizedBox(height: 20),
+          const Text('Chambres minimum', style: TextStyle(fontWeight: FontWeight.w600)),
+           Wrap(
+            spacing: 8,
+            children: [1, 2, 3, 4, 5].map((num) {
+              return ChoiceChip(
+                label: Text('$num+'),
+                selected: _selectedRooms == num,
+                onSelected: (selected) => setState(() => _selectedRooms = selected ? num : 0),
+              );
+            }).toList(),
+          ),
+
+          const Spacer(),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => widget.onApply(
+                _priceRange.start,
+                _priceRange.end,
+                _selectedType,
+                _selectedRooms
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.euro, size: 20, color: Colors.green),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Prix mensuel',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    '${_priceRange.start.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} - ${_priceRange.end.round().toString().replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]} ')} FCFA',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.green,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  RangeSlider(
-                    values: _priceRange,
-                    min: _minPriceLimit,
-                    max: _maxPriceLimit,
-                    divisions: 50,
-                    activeColor: Colors.green,
-                    inactiveColor: Colors.green[100],
-                    labels: RangeLabels(
-                      '${_priceRange.start.round()} FCFA',
-                      '${_priceRange.end.round()} FCFA',
-                    ),
-                    onChanged: (values) {
-                      setState(() {
-                        _priceRange = values;
-                      });
-                    },
-                  ),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        '${_minPriceLimit.round()} FCFA',
-                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                      ),
-                      Text(
-                        '${_maxPriceLimit.round()} FCFA',
-                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
-                      ),
-                    ],
-                  ),
-                ],
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                backgroundColor: Theme.of(context).primaryColor,
+                foregroundColor: Colors.white
               ),
+              child: const Text('Appliquer les filtres'),
             ),
-
-            const SizedBox(height: 20),
-
-            // Section Type de bien
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[200]!),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.home, size: 20, color: Colors.blue),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Type de bien',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
-                      'Appartement',
-                      'Maison',
-                      'Studio',
-                      'Bureau',
-                      'Commerce'
-                    ]
-                        .map((type) => FilterChip(
-                              label: Text(type),
-                              selected: _selectedType == type,
-                              checkmarkColor: Colors.white,
-                              selectedColor: Colors.blue,
-                              backgroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
-                                side: BorderSide(
-                                  color: _selectedType == type
-                                      ? Colors.blue
-                                      : Colors.grey[300]!,
-                                ),
-                              ),
-                              labelStyle: TextStyle(
-                                color: _selectedType == type
-                                    ? Colors.white
-                                    : Colors.black,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              onSelected: (selected) {
-                                setState(() {
-                                  _selectedType = selected ? type : null;
-                                });
-                              },
-                            ))
-                        .toList(),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Section Nombre de pièces
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Colors.grey[50],
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[200]!),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.king_bed,
-                          size: 20, color: Colors.orange),
-                      const SizedBox(width: 8),
-                      const Text(
-                        'Nombre de pièces',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [1, 2, 3, 4, 5]
-                        .map((rooms) => FilterChip(
-                              label:
-                                  Text('$rooms pièce${rooms > 1 ? 's' : ''}'),
-                              selected: _selectedRooms == rooms,
-                              checkmarkColor: Colors.white,
-                              selectedColor: Colors.orange,
-                              backgroundColor: Colors.white,
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(20),
-                                side: BorderSide(
-                                  color: _selectedRooms == rooms
-                                      ? Colors.orange
-                                      : Colors.grey[300]!,
-                                ),
-                              ),
-                              labelStyle: TextStyle(
-                                color: _selectedRooms == rooms
-                                    ? Colors.white
-                                    : Colors.black,
-                                fontWeight: FontWeight.w500,
-                              ),
-                              onSelected: (selected) {
-                                setState(() {
-                                  _selectedRooms = selected ? rooms : 0;
-                                });
-                              },
-                            ))
-                        .toList(),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Boutons d'action
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () {
-                      // Réinitialiser les filtres
-                      setState(() {
-                        _priceRange =
-                            RangeValues(_minPriceLimit, _maxPriceLimit);
-                        _selectedType = null;
-                        _selectedRooms = 0;
-                      });
-                    },
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      side: const BorderSide(color: Colors.grey),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const Text('Réinitialiser'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => widget.onApply(
-                      _priceRange.start,
-                      _priceRange.end,
-                      _selectedType,
-                      _selectedRooms,
-                    ),
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 12),
-                      backgroundColor: Theme.of(context).primaryColor,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const Text(
-                      'Appliquer',
-                      style: TextStyle(fontWeight: FontWeight.w600),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-          ],
-        ),
-      ));
+          )
+        ],
+      ),
+    );
   }
 }

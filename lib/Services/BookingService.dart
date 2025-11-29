@@ -104,11 +104,38 @@ class BookingService {
     }
   }
 
+  /// Récupérer toutes les dates réservées pour une propriété
+  Future<List<DateTime>> getBookingDatesForProperty(String propertyId) async {
+    try {
+      final bookings = await getPropertyBookings(propertyId);
+      final List<DateTime> bookedDates = [];
+
+      for (final booking in bookings) {
+        // On ne considère que les réservations confirmées ou en attente
+        if (booking.status == 'confirmed' || booking.status == 'pending') {
+          DateTime start = booking.checkInDate;
+          // Si la date de fin est nulle (durée indéterminée), on bloque 
+          // arbitrairement une longue période (ex: 2 ans) pour l'affichage
+          DateTime end = booking.checkOutDate ?? 
+              start.add(const Duration(days: 730)); 
+
+          // Ajouter toutes les dates de l'intervalle [start, end]
+          for (int i = 0; i <= end.difference(start).inDays; i++) {
+            bookedDates.add(start.add(Duration(days: i)));
+          }
+        }
+      }
+      return bookedDates;
+    } catch (e) {
+      return [];
+    }
+  }
+
   /// Vérifier la disponibilité
   Future<bool> isPropertyAvailable(
     String propertyId,
     DateTime checkInDate,
-    DateTime checkOutDate,
+    DateTime? checkOutDate,
   ) async {
     try {
       final response = await _supabase
@@ -120,10 +147,39 @@ class BookingService {
       for (var data in response) {
         final booking = Booking.fromJson(data);
 
-        // Vérifier les chevauchements
-        if ((checkInDate.isBefore(booking.checkOutDate) &&
-            checkOutDate.isAfter(booking.checkInDate))) {
-          return false;
+        // Cas 1: La réservation existante est à durée indéterminée
+        // Elle commence avant ou pendant la nouvelle demande -> conflit
+        if (booking.checkOutDate == null) {
+            // Si la nouvelle réservation commence après le début de celle indéterminée
+            if (checkInDate.isAfter(booking.checkInDate) || checkInDate.isAtSameMomentAs(booking.checkInDate)) {
+                return false;
+            }
+            // Si la nouvelle réservation se termine après le début de celle indéterminée
+             if (checkOutDate != null && (checkOutDate.isAfter(booking.checkInDate) || checkOutDate.isAtSameMomentAs(booking.checkInDate))) {
+                return false;
+            }
+        }
+
+        // Cas 2: La nouvelle demande est à durée indéterminée (checkOutDate == null)
+        if (checkOutDate == null) {
+             // Si la nouvelle demande commence avant la fin d'une réservation existante
+             if (booking.checkOutDate != null && checkInDate.isBefore(booking.checkOutDate!)) {
+                 return false;
+             }
+             // Si elle commence avant ou pendant une autre réservation indéterminée (déjà géré par Cas 1, mais bon)
+              if (booking.checkOutDate == null && (checkInDate.isAfter(booking.checkInDate) || checkInDate.isAtSameMomentAs(booking.checkInDate))) {
+                 return false;
+             }
+        }
+
+
+        // Cas 3: Comparaison standard de deux intervalles finis
+        if (checkOutDate != null && booking.checkOutDate != null) {
+            // (StartA < EndB) and (EndA > StartB)
+            if (checkInDate.isBefore(booking.checkOutDate!) &&
+                checkOutDate.isAfter(booking.checkInDate)) {
+              return false;
+            }
         }
       }
       return true;

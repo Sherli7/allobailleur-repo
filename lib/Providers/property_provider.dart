@@ -103,32 +103,35 @@ class PropertyService {
     int? rooms,
   }) async {
     try {
-      // Simple implementation, filter in code for now
-      final response = await _supabase
-          .from('properties')
-          .select()
-          .order('createdAt', ascending: false);
-      List<Property> list =
-          response.map((data) => Property.fromJson(data)).toList();
+      dynamic queryBuilder = _supabase.from('properties').select();
 
-      // Filter in code
+      // Apply text search across multiple fields if query is provided
       if (query.isNotEmpty) {
-        list = list
-            .where((p) => p.title.contains(query) || p.city.contains(query))
-            .toList();
+        queryBuilder = queryBuilder.or(
+          'title.ilike.%$query%,description.ilike.%$query%,city.ilike.%$query%,district.ilike.%$query%,address.ilike.%$query%',
+        );
       }
-      if (minPrice != null) {
-        list = list.where((p) => p.price >= minPrice).toList();
+
+      // Apply other filters
+      if (minPrice != null && minPrice > 0) {
+        queryBuilder = queryBuilder.gte('price', minPrice);
       }
-      if (maxPrice != null) {
-        list = list.where((p) => p.price <= maxPrice).toList();
+      if (maxPrice != null && maxPrice < 1000000) {
+        queryBuilder = queryBuilder.lte('price', maxPrice);
       }
       if (type != null && type.isNotEmpty) {
-        list = list.where((p) => p.type == type).toList();
+        queryBuilder = queryBuilder.eq('type', type);
       }
       if (rooms != null) {
-        list = list.where((p) => p.rooms == rooms).toList();
+        queryBuilder = queryBuilder.eq('rooms', rooms);
       }
+
+      // Apply order
+      queryBuilder = queryBuilder.order('createdAt', ascending: false);
+
+      final response = await queryBuilder;
+      List<Property> list =
+          response.map((data) => Property.fromJson(data)).toList();
 
       return list;
     } catch (e) {

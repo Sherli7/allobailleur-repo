@@ -1,7 +1,6 @@
-// Temporarily ignore usage of deprecated Radio API until migration to RadioGroup
-// ignore_for_file: deprecated_member_use
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'dart:ui' show ImageFilter;
 import 'package:rent_house/Models/AppConstants.dart';
 import 'package:rent_house/Providers/auth_provider.dart' as app_auth;
 import 'package:rent_house/Screens/guestHomePage.dart';
@@ -17,7 +16,8 @@ class SignUpPage extends StatefulWidget {
   State<SignUpPage> createState() => _MySignUpPageState();
 }
 
-class _MySignUpPageState extends State<SignUpPage> {
+class _MySignUpPageState extends State<SignUpPage>
+    with TickerProviderStateMixin {
   final _formKey = GlobalKey<FormState>();
 
   late TextEditingController _emailController;
@@ -30,6 +30,10 @@ class _MySignUpPageState extends State<SignUpPage> {
 
   String _selectedRole = 'tenant'; // 'tenant' or 'owner'
 
+  late AnimationController _fadeController;
+  late Animation<double> _fadeAnimation;
+  late Animation<Offset> _slideAnimation;
+
   @override
   void initState() {
     super.initState();
@@ -40,6 +44,21 @@ class _MySignUpPageState extends State<SignUpPage> {
     _cityController = TextEditingController();
     _countryController = TextEditingController();
     _bioController = TextEditingController();
+
+    _fadeController = AnimationController(
+      duration: const Duration(milliseconds: 1000),
+      vsync: this,
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut),
+    );
+    _slideAnimation = Tween<Offset>(
+      begin: const Offset(0, 0.2),
+      end: Offset.zero,
+    ).animate(
+        CurvedAnimation(parent: _fadeController, curve: Curves.easeOutQuad));
+
+    _fadeController.forward();
   }
 
   @override
@@ -51,6 +70,7 @@ class _MySignUpPageState extends State<SignUpPage> {
     _cityController.dispose();
     _countryController.dispose();
     _bioController.dispose();
+    _fadeController.dispose();
     super.dispose();
   }
 
@@ -77,15 +97,35 @@ class _MySignUpPageState extends State<SignUpPage> {
 
     if (success) {
       messenger.showSnackBar(
-        const SnackBar(content: Text('Inscription réussie!')),
+        SnackBar(
+          content: Row(
+            children: const [
+              Icon(Icons.check_circle, color: Colors.white),
+              SizedBox(width: 8),
+              Text('Inscription réussie!'),
+            ],
+          ),
+          backgroundColor: Colors.green,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        ),
       );
       navigator.pushReplacementNamed(GuestHomePage.routeName);
     } else {
       messenger.showSnackBar(
         SnackBar(
-          content: Text(
-              authProvider.errorMessage ?? 'Erreur lors de l\'inscription'),
-          backgroundColor: Colors.red,
+          content: Row(
+            children: [
+              const Icon(Icons.error_outline, color: Colors.white),
+              const SizedBox(width: 8),
+              Expanded(
+                  child: Text(authProvider.errorMessage ??
+                      'Erreur lors de l\'inscription')),
+            ],
+          ),
+          backgroundColor: Colors.red.shade400,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
         ),
       );
     }
@@ -95,187 +135,338 @@ class _MySignUpPageState extends State<SignUpPage> {
     Navigator.pushReplacementNamed(context, LoginPage.routeName);
   }
 
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String label,
+    required IconData icon,
+    bool isPassword = false,
+    TextInputType? keyboardType,
+    String? Function(String?)? validator,
+    int maxLines = 1,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16.0),
+      child: TextFormField(
+        controller: controller,
+        obscureText: isPassword,
+        keyboardType: keyboardType,
+        maxLines: maxLines,
+        decoration: InputDecoration(
+          labelText: label,
+          prefixIcon: Icon(icon, color: AppConstants.toColor("219ebc")),
+          border: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide:
+                BorderSide(color: AppConstants.toColor("219ebc"), width: 2),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: BorderRadius.circular(12),
+            borderSide: BorderSide(color: Colors.grey.shade300),
+          ),
+          filled: true,
+          fillColor: Colors.grey.shade50,
+          contentPadding:
+              const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        ),
+        validator: validator,
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<app_auth.AuthProvider>(context);
+    final primaryColor = AppConstants.toColor("219ebc");
 
     return Scaffold(
+      extendBodyBehindAppBar: true,
       appBar: AppBar(
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        title: AppBarText(key: UniqueKey(), text: 'Inscription'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.black87),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
       ),
-      body: Center(
-        child: SingleChildScrollView(
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(25, 30, 25, 20),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.start,
-              children: [
-                const Text(
-                  'Créer votre compte',
-                  style: TextStyle(fontSize: 28.0, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 8),
-                const Text(
-                  'Veuillez remplir les informations suivantes',
-                  style: TextStyle(fontSize: 16.0, color: Colors.grey),
-                  textAlign: TextAlign.center,
-                ),
-                const SizedBox(height: 25),
-                Form(
-                  key: _formKey,
+      body: Container(
+        width: double.infinity,
+        height: double.infinity,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Colors.white,
+              Colors.blue.shade50,
+              Colors.white,
+            ],
+          ),
+        ),
+        child: SafeArea(
+          child: SingleChildScrollView(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 24.0),
+              child: FadeTransition(
+                opacity: _fadeAnimation,
+                child: SlideTransition(
+                  position: _slideAnimation,
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Email
-                      TextFormField(
-                        controller: _emailController,
-                        decoration: const InputDecoration(
-                          labelText: 'Email',
-                          border: OutlineInputBorder(),
-                        ),
-                        keyboardType: TextInputType.emailAddress,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Veuillez entrer votre email';
-                          }
-                          if (!value.contains('@')) {
-                            return 'Email invalide';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 15),
-                      // Mot de passe
-                      TextFormField(
-                        controller: _passwordController,
-                        decoration: const InputDecoration(
-                          labelText: 'Mot de passe',
-                          border: OutlineInputBorder(),
-                        ),
-                        obscureText: true,
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Veuillez entrer un mot de passe';
-                          }
-                          if (value.length < 6) {
-                            return 'Le mot de passe doit contenir au moins 6 caractères';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 15),
-                      // Prénom
-                      TextFormField(
-                        controller: _firstNameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Prénom',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Veuillez entrer votre prénom';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 15),
-                      // Nom
-                      TextFormField(
-                        controller: _lastNameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Nom',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Veuillez entrer votre nom';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 15),
-                      // Ville
-                      TextFormField(
-                        controller: _cityController,
-                        decoration: const InputDecoration(
-                          labelText: 'Ville',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Veuillez entrer votre ville';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 15),
-                      // Pays
-                      TextFormField(
-                        controller: _countryController,
-                        decoration: const InputDecoration(
-                          labelText: 'Pays',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (value) {
-                          if (value == null || value.isEmpty) {
-                            return 'Veuillez entrer votre pays';
-                          }
-                          return null;
-                        },
-                      ),
-                      const SizedBox(height: 15),
-                      // Bio (optionnel)
-                      TextFormField(
-                        controller: _bioController,
-                        decoration: const InputDecoration(
-                          labelText: 'Bio (optionnel)',
-                          border: OutlineInputBorder(),
-                        ),
-                        maxLines: 3,
-                      ),
                       const SizedBox(height: 20),
-                      // Role selector
-                      Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 15.0),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              'Je suis :',
-                              style: TextStyle(
-                                fontSize: 16.0,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Row(
+                      Text(
+                        'Créer un compte',
+                        style: TextStyle(
+                          fontSize: 32,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.black87,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Rejoignez la communauté AllôBailleur',
+                        style: TextStyle(
+                          fontSize: 16,
+                          color: Colors.grey.shade600,
+                        ),
+                      ),
+                      const SizedBox(height: 40),
+
+                      Card(
+                        elevation: 0, // Flat style moderne
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                          side: BorderSide(color: Colors.grey.shade200),
+                        ),
+                        color: Colors.white,
+                        child: Padding(
+                          padding: const EdgeInsets.all(24.0),
+                          child: Form(
+                            key: _formKey,
+                            child: Column(
                               children: [
-                                Expanded(
-                                  child: RadioListTile(
-                                    title: const Text('Locataire'),
-                                    value: 'tenant',
-                                    groupValue: _selectedRole,
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _selectedRole = value ?? 'tenant';
-                                      });
-                                    },
+                                _buildTextField(
+                                  controller: _firstNameController,
+                                  label: 'Prénom',
+                                  icon: Icons.person_outline,
+                                  validator: (v) => v!.isEmpty
+                                      ? 'Veuillez entrer votre prénom'
+                                      : null,
+                                ),
+                                _buildTextField(
+                                  controller: _lastNameController,
+                                  label: 'Nom',
+                                  icon: Icons.person,
+                                  validator: (v) => v!.isEmpty
+                                      ? 'Veuillez entrer votre nom'
+                                      : null,
+                                ),
+                                _buildTextField(
+                                  controller: _emailController,
+                                  label: 'Email',
+                                  icon: Icons.email_outlined,
+                                  keyboardType: TextInputType.emailAddress,
+                                  validator: (v) =>
+                                      !v!.contains('@') ? 'Email invalide' : null,
+                                ),
+                                _buildTextField(
+                                  controller: _passwordController,
+                                  label: 'Mot de passe',
+                                  icon: Icons.lock_outline,
+                                  isPassword: true,
+                                  validator: (v) => v!.length < 6
+                                      ? 'Min 6 caractères'
+                                      : null,
+                                ),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: _buildTextField(
+                                        controller: _cityController,
+                                        label: 'Ville',
+                                        icon: Icons.location_city,
+                                        validator: (v) => v!.isEmpty
+                                            ? 'Ville requise'
+                                            : null,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                                      child: _buildTextField(
+                                        controller: _countryController,
+                                        label: 'Pays',
+                                        icon: Icons.public,
+                                        validator: (v) => v!.isEmpty
+                                            ? 'Pays requis'
+                                            : null,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                _buildTextField(
+                                  controller: _bioController,
+                                  label: 'Bio (optionnel)',
+                                  icon: Icons.description_outlined,
+                                  maxLines: 3,
+                                ),
+
+                                // Role Selection Modernisée
+                                Container(
+                                  margin: const EdgeInsets.only(bottom: 24),
+                                  padding: const EdgeInsets.all(4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey.shade100,
+                                    borderRadius: BorderRadius.circular(16),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: GestureDetector(
+                                          onTap: () => setState(
+                                              () => _selectedRole = 'tenant'),
+                                          child: AnimatedContainer(
+                                            duration: const Duration(
+                                                milliseconds: 200),
+                                            padding: const EdgeInsets.symmetric(
+                                                vertical: 12),
+                                            decoration: BoxDecoration(
+                                              color: _selectedRole == 'tenant'
+                                                  ? Colors.white
+                                                  : Colors.transparent,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              boxShadow: _selectedRole ==
+                                                      'tenant'
+                                                  ? [
+                                                      BoxShadow(
+                                                          color: Colors.black12,
+                                                          blurRadius: 4,
+                                                          offset: Offset(0, 2))
+                                                    ]
+                                                  : [],
+                                            ),
+                                            child: Center(
+                                              child: Text(
+                                                'Locataire',
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                  color:
+                                                      _selectedRole == 'tenant'
+                                                          ? Colors.black87
+                                                          : Colors.grey,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(
+                                        child: GestureDetector(
+                                          onTap: () => setState(
+                                              () => _selectedRole = 'owner'),
+                                          child: AnimatedContainer(
+                                            duration: const Duration(
+                                                milliseconds: 200),
+                                            padding: const EdgeInsets.symmetric(
+                                                vertical: 12),
+                                            decoration: BoxDecoration(
+                                              color: _selectedRole == 'owner'
+                                                  ? Colors.white
+                                                  : Colors.transparent,
+                                              borderRadius:
+                                                  BorderRadius.circular(12),
+                                              boxShadow: _selectedRole ==
+                                                      'owner'
+                                                  ? [
+                                                      BoxShadow(
+                                                          color: Colors.black12,
+                                                          blurRadius: 4,
+                                                          offset: Offset(0, 2))
+                                                    ]
+                                                  : [],
+                                            ),
+                                            child: Center(
+                                              child: Text(
+                                                'Propriétaire',
+                                                style: TextStyle(
+                                                  fontWeight: FontWeight.w600,
+                                                  color: _selectedRole ==
+                                                          'owner'
+                                                      ? Colors.black87
+                                                      : Colors.grey,
+                                                ),
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                                Expanded(
-                                  child: RadioListTile(
-                                    title: const Text('Propriétaire'),
-                                    value: 'owner',
-                                    groupValue: _selectedRole,
-                                    onChanged: (value) {
-                                      setState(() {
-                                        _selectedRole = value ?? 'tenant';
-                                      });
-                                    },
+
+                                // Bouton d'inscription
+                                SizedBox(
+                                  width: double.infinity,
+                                  height: 56,
+                                  child: ElevatedButton(
+                                    onPressed: authProvider.isLoading
+                                        ? null
+                                        : _signup,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: primaryColor,
+                                      elevation: 4,
+                                      shadowColor:
+                                          primaryColor.withOpacity(0.4),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(16),
+                                      ),
+                                    ),
+                                    child: authProvider.isLoading
+                                        ? const SizedBox(
+                                            width: 24,
+                                            height: 24,
+                                            child: CircularProgressIndicator(
+                                                color: Colors.white,
+                                                strokeWidth: 2),
+                                          )
+                                        : const Text(
+                                            'Créer mon compte',
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white,
+                                            ),
+                                          ),
                                   ),
                                 ),
                               ],
+                            ),
+                          ),
+                        ),
+                      ),
+
+                      // Lien connexion
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 24.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text('Déjà inscrit ? ',
+                                style: TextStyle(color: Colors.grey.shade600)),
+                            GestureDetector(
+                              onTap: _navigateToLogin,
+                              child: Text(
+                                'Se connecter',
+                                style: TextStyle(
+                                  color: primaryColor,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
                             ),
                           ],
                         ),
@@ -283,54 +474,7 @@ class _MySignUpPageState extends State<SignUpPage> {
                     ],
                   ),
                 ),
-                // Submit button
-                if (authProvider.isLoading)
-                  const Padding(
-                    padding: EdgeInsets.only(top: 20.0),
-                    child: CircularProgressIndicator(),
-                  )
-                else ...[
-                  Padding(
-                    padding: const EdgeInsets.only(top: 30.0),
-                    child: MaterialButton(
-                      onPressed: _signup,
-                      color: AppConstants.toColor("219ebc"),
-                      height: MediaQuery.of(context).size.height / 14,
-                      minWidth: double.infinity,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: const Text(
-                        'S\'inscrire',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 18.0,
-                          color: Colors.white,
-                        ),
-                      ),
-                    ),
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.only(top: 15.0, bottom: 20.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        const Text('Vous avez déjà un compte? '),
-                        GestureDetector(
-                          onTap: _navigateToLogin,
-                          child: Text(
-                            'Se connecter',
-                            style: TextStyle(
-                              color: AppConstants.toColor("219ebc"),
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ]
-              ],
+              ),
             ),
           ),
         ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:rent_house/Models/property.dart';
 import 'package:rent_house/Screens/propertyDetailsPage.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 // Nouveau StatefulWidget pour la carte avec slider d'images
 class PropertyCard extends StatefulWidget {
@@ -75,6 +76,7 @@ Découvrez cette propriété sur Allô Bailleur !
         elevation: 4, // Réduit pour subtilité
         color: Theme.of(context).colorScheme.surface, // Surface MD3
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        clipBehavior: Clip.antiAlias, // Pour éviter overflow visible
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
           onTap: () {
@@ -89,7 +91,7 @@ Découvrez cette propriété sur Allô Bailleur !
             children: [
               // Slider d'images avec indicateurs
               SizedBox(
-                height: 140, // Augmenté pour de meilleures proportions
+                height: 130, // Réduit pour éviter overflow
                 child: Stack(
                   children: [
                     // PageView pour le slider
@@ -124,9 +126,26 @@ Découvrez cette propriété sur Allô Bailleur !
                           decoration: BoxDecoration(
                             borderRadius: const BorderRadius.vertical(
                                 top: Radius.circular(16)),
-                            image: DecorationImage(
-                              image: NetworkImage(imageUrls[index]),
-                              fit: BoxFit.cover,
+                          ),
+                          child: CachedNetworkImage(
+                            imageUrl: imageUrls[index],
+                            fit: BoxFit.cover,
+                            placeholder: (context, url) => Container(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHighest,
+                              child: const Center(
+                                  child: CircularProgressIndicator()),
+                            ),
+                            errorWidget: (context, url, error) => Container(
+                              color: Theme.of(context)
+                                  .colorScheme
+                                  .surfaceContainerHighest,
+                              child: const Icon(
+                                Icons.image_not_supported,
+                                color: Colors.grey,
+                                size: 48,
+                              ),
                             ),
                           ),
                         );

@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import 'package:rent_house/Models/Users.dart' as user_model;
 import 'package:rent_house/Services/AuthService.dart'; // Keeping for user data loading logic if needed, or refactoring
+import 'dart:typed_data';
+import 'package:cross_file/cross_file.dart';
 
 class AuthProvider extends ChangeNotifier {
   // We are now prioritizing Supabase Auth.
@@ -186,11 +188,32 @@ class AuthProvider extends ChangeNotifier {
   }
 
   // Legacy methods for compatibility
-  Future<void> updateUserProfile(Map<String, dynamic> updates) async {
+  Future<void> updateUserProfile({
+    String? fullName,
+    String? email,
+    String? city,
+    String? country,
+    String? bio,
+    String? avatarUrl,
+    String? role,
+    bool? isHost,
+  }) async {
+    // Prepare updates map
+    final updates = <String, dynamic>{};
+    if (fullName != null) updates['full_name'] = fullName;
+    if (email != null) updates['email'] = email;
+    if (city != null) updates['city'] = city;
+    if (country != null) updates['country'] = country;
+    if (bio != null) updates['bio'] = bio;
+    if (avatarUrl != null) updates['avatar_url'] = avatarUrl;
+    if (role != null) updates['role'] = role;
+    if (isHost != null) updates['isHost'] = isHost;
+
     // Update user metadata in Supabase
     try {
       await _supabase.auth.updateUser(
         UserAttributes(
+          email: email,
           data: updates,
         ),
       );
@@ -198,15 +221,15 @@ class AuthProvider extends ChangeNotifier {
       if (_user != null) {
         _user = user_model.User(
           uid: _user!.uid,
-          email: _user!.email,
-          firstName: updates['full_name']?.split(' ').first ?? _user!.firstName,
-          lastName: updates['full_name']?.split(' ').last ?? _user!.lastName,
-          role: updates['role'] ?? _user!.role,
-          profileImageUrl: updates['avatar_url'] ?? _user!.profileImageUrl,
-          isHost: updates['isHost'] ?? _user!.isHost,
-          city: updates['city'] ?? _user!.city,
-          country: updates['country'] ?? _user!.country,
-          bio: updates['bio'] ?? _user!.bio,
+          email: email ?? _user!.email,
+          firstName: fullName?.split(' ').first ?? _user!.firstName,
+          lastName: fullName?.split(' ').last ?? _user!.lastName,
+          role: role ?? _user!.role,
+          profileImageUrl: avatarUrl ?? _user!.profileImageUrl,
+          isHost: isHost ?? _user!.isHost,
+          city: city ?? _user!.city,
+          country: country ?? _user!.country,
+          bio: bio ?? _user!.bio,
           createdAt: _user!.createdAt,
           updatedAt: DateTime.now(),
           hasActiveSubscription: _user!.hasActiveSubscription,
@@ -219,15 +242,54 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  Future<void> updateProfileImage(String imageUrl) async {
-    await updateUserProfile({'avatar_url': imageUrl});
+  Future<bool> updateProfileImage(dynamic pickedFile) async {
+    try {
+      // Handle both XFile (mobile/web) and File (desktop)
+      late Uint8List fileBytes;
+      String fileName;
+
+      if (pickedFile is XFile) {
+        fileBytes = await pickedFile.readAsBytes();
+        fileName = pickedFile.name;
+      } else {
+        // Assume it's a file path or other
+        throw 'Unsupported file type';
+      }
+
+      // Upload to Supabase Storage
+      final userId = currentUserId;
+      if (userId == null) throw 'User not logged in';
+
+      final filePath = 'avatars/$userId/$fileName';
+      await _supabase.storage.from('images').uploadBinary(
+            filePath,
+            fileBytes,
+            fileOptions: const FileOptions(upsert: true),
+          );
+
+      // Get public URL
+      final imageUrl = _supabase.storage.from('images').getPublicUrl(filePath);
+
+      // Update profile
+      await updateUserProfile(avatarUrl: imageUrl);
+      return true;
+    } catch (e) {
+      _errorMessage = 'Erreur upload image: $e';
+      notifyListeners();
+      return false;
+    }
   }
 
   // Getter for firebaseUser (legacy, returns null)
   dynamic get firebaseUser => null;
 
   Future<bool> promoteToOwner() async {
-    await updateUserProfile({'role': 'owner', 'isHost': true});
+    await updateUserProfile(role: 'owner', isHost: true);
+    return true;
+  }
+
+  Future<bool> becomeHost() async {
+    await updateUserProfile(isHost: true);
     return true;
   }
 

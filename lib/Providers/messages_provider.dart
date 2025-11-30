@@ -1,9 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'dart:async';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:rent_house/Services/messages_service.dart';
 import 'package:rent_house/Models/conversation.dart';
 import 'package:rent_house/Models/message.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class MessagesProvider with ChangeNotifier {
   final MessagesService _messagesService = MessagesService();
@@ -29,6 +29,8 @@ class MessagesProvider with ChangeNotifier {
     _messagesSubscription?.cancel();
     super.dispose();
   }
+
+  String? get _currentUserId => Supabase.instance.client.auth.currentUser?.id;
 
   /// Charge les conversations d'un user (init ou refresh)
   void loadConversations(String userId) {
@@ -80,16 +82,16 @@ class MessagesProvider with ChangeNotifier {
   /// Envoie un message (texte ou image)
   Future<bool> sendMessage(String conversationId, String text,
       {String? imageUrl, String? videoUrl}) async {
-    if (_isLoading || FirebaseAuth.instance.currentUser == null) return false;
+    final userId = _currentUserId;
+    if (_isLoading || userId == null) return false;
 
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      final senderId = FirebaseAuth.instance.currentUser!.uid;
       await _messagesService.sendMessage(conversationId, text,
-          imageUrl: imageUrl, videoUrl: videoUrl, senderId: senderId);
+          imageUrl: imageUrl, videoUrl: videoUrl, senderId: userId);
       // Pas de local update needed car stream rebâtira
       _isLoading = false;
       return true;
@@ -103,13 +105,13 @@ class MessagesProvider with ChangeNotifier {
 
   /// Marque une conversation comme contact payé
   Future<bool> markContactPaid(String conversationId) async {
-    if (FirebaseAuth.instance.currentUser == null) return false;
+    final userId = _currentUserId;
+    if (userId == null) return false;
 
     _isLoading = true;
     notifyListeners();
 
     try {
-      final userId = FirebaseAuth.instance.currentUser!.uid;
       await _messagesService.markContactPaid(conversationId, userId);
       // Local update
       final index = _conversations.indexWhere((c) => c.id == conversationId);
@@ -130,11 +132,11 @@ class MessagesProvider with ChangeNotifier {
 
   /// Marque une conversation comme lue (délégué au service)
   Future<bool> markAsRead(String conversationId) async {
-    if (FirebaseAuth.instance.currentUser == null) return false;
+    final userId = _currentUserId;
+    if (userId == null) return false;
     _isLoading = true;
     notifyListeners();
     try {
-      final userId = FirebaseAuth.instance.currentUser!.uid;
       await _messagesService.markAsRead(conversationId, userId);
       // Local update: set unreadCount to 0 for this convo
       final idx = _conversations.indexWhere((c) => c.id == conversationId);
@@ -155,17 +157,17 @@ class MessagesProvider with ChangeNotifier {
   /// Crée une nouvelle conversation (ex. depuis annonce)
   Future<String?> createConversation(String otherUserId,
       {String? propertyId}) async {
-    if (FirebaseAuth.instance.currentUser == null) return null;
+    final userId = _currentUserId;
+    if (userId == null) return null;
 
     _isLoading = true;
     notifyListeners();
 
     try {
-      final currentUserId = FirebaseAuth.instance.currentUser!.uid;
       final convoId = await _messagesService.createConversation(
-          otherUserId, propertyId ?? '');
+          otherUserId, propertyId ?? '', currentUserId: userId);
       // Refresh conversations pour inclure la nouvelle
-      loadConversations(currentUserId);
+      loadConversations(userId);
       _isLoading = false;
       return convoId;
     } catch (e) {

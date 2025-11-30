@@ -54,11 +54,25 @@ class AuthService {
         return {'success': false, 'message': 'Échec de la création du compte.'};
       }
 
+      // Inscrire aussi dans Supabase Auth pour la cohérence des IDs et Policies
+      try {
+          await _supabase.auth.signUp(
+            email: email,
+            password: password, // Idéalement on ne devrait pas stocker le mdp deux fois, mais ici on synchronise
+            // Si le but est une migration, c'est complexe. 
+            // Pour l'instant, on se concentre sur la DB 'users'.
+            // Mais 'becomeHost' et 'createProperty' utilisent Supabase Auth.
+            // Donc il faut un compte Supabase Auth.
+          );
+      } catch (e) {
+          debugPrint('Erreur création compte Supabase Auth (peut-être déjà existant): $e');
+      }
+
       // Insert user profile directly to Supabase
       try {
         debugPrint('[AuthService] inserting user profile to Supabase');
         final userMap = {
-          'uid': user.uid,
+          'uid': user.uid, // On garde l'UID Firebase comme clé primaire logique
           'email': email,
           'firstName': firstName,
           'lastName': lastName,
@@ -69,16 +83,11 @@ class AuthService {
           'isHost': role == 'owner', // Définit isHost si le rôle est owner
           'createdAt': DateTime.now().toIso8601String(),
         };
-        final response = await _supabase.from('users').insert(userMap).select();
-        debugPrint('[AuthService] Supabase insert result: $response');
+        
+        // On utilise upsert pour éviter les erreurs si existe déjà
+        await _supabase.from('users').upsert(userMap);
       } catch (insertEx) {
         debugPrint('[AuthService] Supabase insert error: $insertEx');
-        // Delete the Firebase user if Supabase insert fails to maintain consistency
-        try {
-          await user.delete();
-        } catch (delEx) {
-          debugPrint('[AuthService] failed to delete Firebase user: $delEx');
-        }
         return {
           'success': false,
           'message': 'Erreur création profil Supabase: $insertEx'
@@ -111,8 +120,16 @@ class AuthService {
   }) async {
     try {
       debugPrint('[AuthService] login called for email: $email');
+      // Connexion Firebase
       final credential = await _firebaseAuth.signInWithEmailAndPassword(
           email: email, password: password);
+          
+      // Connexion Supabase (pour les tokens d'accès RLS)
+      try {
+         await _supabase.auth.signInWithPassword(email: email, password: password);
+      } catch (e) {
+         debugPrint('Erreur connexion Supabase Auth (non critique si RLS désactivé): $e');
+      }
       
       // Mettre à jour le token FCM à la connexion
       if (credential.user != null) {
@@ -184,6 +201,7 @@ class AuthService {
   /// Déconnexion (alias logout attendu)
   Future<void> logout() async {
     try {
+      await _supabase.auth.signOut(); // Logout Supabase
       if (kIsWeb) {
         await _firebaseAuth.signOut();
         return;
@@ -225,15 +243,28 @@ class AuthService {
   /// Fonction pour devenir hôte (Become Host)
   Future<Map<String, dynamic>> becomeHost() async {
     try {
-      final user = _firebaseAuth.currentUser;
-      if (user == null) {
+      // On supporte Supabase Auth et Firebase Auth
+      final user = _supabase.auth.currentUser ?? 
+          ( _firebaseAuth.currentUser != null 
+             ? User(id: _firebaseAuth.currentUser!.uid, appMetadata: {}, userMetadata: {}, aud: '', createdAt: '') // Fake user for ID
+             : null
+          );
+          
+      final uid = _supabase.auth.currentUser?.id ?? _firebaseAuth.currentUser?.uid;
+
+      if (uid == null) {
         return {'success': false, 'message': 'Utilisateur non connecté.'};
       }
       
       await _supabase.from('users').update({
         'role': 'owner',
         'isHost': true,
-      }).eq('uid', user.uid);
+      }).eq('uid', uid);
+      
+      // Refresh metadata if using Supabase Auth
+      if (_supabase.auth.currentUser != null) {
+          await _supabase.auth.refreshSession();
+      }
       
       return {'success': true, 'message': 'Félicitations ! Vous êtes maintenant bailleur.'};
     } catch (e) {

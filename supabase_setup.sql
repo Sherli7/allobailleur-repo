@@ -149,6 +149,30 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
     "updatedAt" TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- NEW: CHAT SYSTEM TABLES
+-- Create conversations table
+CREATE TABLE IF NOT EXISTS public.conversations (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    "propertyId" UUID REFERENCES properties(id),
+    participants TEXT[] NOT NULL, -- Array of user UIDs
+    "lastMessage" TEXT,
+    "lastMessageTime" TIMESTAMPTZ DEFAULT NOW(),
+    "createdAt" TIMESTAMPTZ DEFAULT NOW(),
+    "updatedAt" TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Create messages table
+CREATE TABLE IF NOT EXISTS public.messages (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    "conversationId" UUID REFERENCES conversations(id) ON DELETE CASCADE,
+    "senderId" TEXT NOT NULL REFERENCES users(uid),
+    content TEXT,
+    "mediaUrl" TEXT,
+    "mediaType" TEXT DEFAULT 'text', -- text, image, video
+    "isRead" BOOLEAN DEFAULT false,
+    "createdAt" TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Enable Row Level Security (RLS)
 ALTER TABLE public.users DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.properties ENABLE ROW LEVEL SECURITY;
@@ -157,6 +181,8 @@ ALTER TABLE public.bookings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.images ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies if they exist to recreate them
 DROP POLICY IF EXISTS "Anyone can view published properties" ON public.properties;
@@ -179,6 +205,13 @@ DROP POLICY IF EXISTS "Anyone can view images" ON public.images;
 DROP POLICY IF EXISTS "Authenticated users can manage images" ON public.images;
 
 DROP POLICY IF EXISTS "Users can manage own subscriptions" ON public.subscriptions;
+
+-- Drop Chat Policies
+DROP POLICY IF EXISTS "Users can view their conversations" ON public.conversations;
+DROP POLICY IF EXISTS "Users can insert conversations" ON public.conversations;
+DROP POLICY IF EXISTS "Users can update their conversations" ON public.conversations;
+DROP POLICY IF EXISTS "Users can view messages" ON public.messages;
+DROP POLICY IF EXISTS "Users can insert messages" ON public.messages;
 
 -- Create policies for properties
 CREATE POLICY "Anyone can view published properties" ON public.properties
@@ -231,6 +264,38 @@ CREATE POLICY "Authenticated users can manage images" ON public.images
 CREATE POLICY "Users can manage own subscriptions" ON public.subscriptions
     FOR ALL USING (true);
 
+-- CHAT POLICIES
+
+-- Conversations: Users can view if they are in participants
+CREATE POLICY "Users can view their conversations" ON public.conversations
+    FOR SELECT USING (auth.uid()::text = ANY(participants));
+
+CREATE POLICY "Users can insert conversations" ON public.conversations
+    FOR INSERT WITH CHECK (auth.uid()::text = ANY(participants));
+    
+CREATE POLICY "Users can update their conversations" ON public.conversations
+    FOR UPDATE USING (auth.uid()::text = ANY(participants));
+
+-- Messages: Users can view messages of conversations they belong to
+CREATE POLICY "Users can view messages" ON public.messages
+    FOR SELECT USING (
+        EXISTS (
+            SELECT 1 FROM public.conversations c 
+            WHERE c.id = "conversationId"
+            AND auth.uid()::text = ANY(c.participants)
+        )
+    );
+
+CREATE POLICY "Users can insert messages" ON public.messages
+    FOR INSERT WITH CHECK (
+        auth.uid()::text = "senderId" 
+        AND EXISTS (
+            SELECT 1 FROM public.conversations c 
+            WHERE c.id = "conversationId"
+            AND auth.uid()::text = ANY(c.participants)
+        )
+    );
+
 -- Create indexes for better performance (IF NOT EXISTS)
 CREATE INDEX IF NOT EXISTS idx_properties_city ON public.properties(city);
 CREATE INDEX IF NOT EXISTS idx_properties_price ON public.properties(price);
@@ -245,3 +310,7 @@ CREATE INDEX IF NOT EXISTS idx_reviews_property ON public.reviews("propertyId");
 CREATE INDEX IF NOT EXISTS idx_images_property ON public.images("propertyId");
 CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON public.subscriptions("userId");
 CREATE INDEX IF NOT EXISTS idx_properties_location ON public.properties(latitude, longitude);
+
+-- Indexes for chat
+CREATE INDEX IF NOT EXISTS idx_conversations_participants ON public.conversations USING GIN(participants);
+CREATE INDEX IF NOT EXISTS idx_messages_conversation ON public.messages("conversationId");

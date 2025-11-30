@@ -7,9 +7,11 @@ import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:rent_house/l10n/app_localizations.dart';
 
 import 'package:rent_house/Models/property.dart';
-import 'package:rent_house/Screens/BookPostingPage.dart';
+import 'package:rent_house/Screens/bookPostingPage.dart';
 import 'package:rent_house/Screens/guestHomePage.dart';
 import 'package:rent_house/Screens/loginPage.dart';
 import 'package:rent_house/Screens/personalInfoPage.dart';
@@ -88,6 +90,18 @@ class MyApp extends StatelessWidget {
         title: 'Allô Bailleur',
         theme: AppTheme.lightTheme,
         darkTheme: AppTheme.darkTheme,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('fr'), // French (default)
+          Locale('en'), // English
+        ],
+        locale: const Locale(
+            'fr'), // Force French for now or use logic to determine
         home: const AuthWrapper(),
         routes: {
           LoginPage.routeName: (context) => const LoginPage(),
@@ -95,7 +109,6 @@ class MyApp extends StatelessWidget {
           GuestHomePage.routeName: (context) => const GuestHomePage(),
           PersonalInfoPage.routeName: (context) => const PersonalInfoPage(),
           ViewProfilePage.routeName: (context) => const ViewProfilePage(),
-          BookPostingPage.routeName: (context) => const BookPostingPage(),
           ConversationPage.routeName: (context) => const ConversationPage(),
           CreatePropertyPage.routeName: (context) => const CreatePropertyPage(),
           SearchPage.routeName: (context) => const SearchPage(),
@@ -117,7 +130,15 @@ class MyApp extends StatelessWidget {
           BookingPage.routeName: (context) {
             final property = ModalRoute.of(context)?.settings.arguments;
             if (property != null) {
-              return BookingPage(property: property as Property);
+              return BookingPage(property: (property as Property).toJson());
+            }
+            return const Scaffold(
+                body: Center(child: Text('Erreur: Propriété manquante')));
+          },
+          BookPostingPage.routeName: (context) {
+            final property = ModalRoute.of(context)?.settings.arguments;
+            if (property != null) {
+              return BookPostingPage(property: property as Property);
             }
             return const Scaffold(
                 body: Center(child: Text('Propriété non trouvée')));

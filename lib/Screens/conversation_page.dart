@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:rent_house/Models/message.dart';
 import 'package:rent_house/Providers/messages_provider.dart';
 import 'package:rent_house/Models/AppConstants.dart';
 import 'package:rent_house/Models/property.dart';
 import 'package:rent_house/Screens/propertyDetailsPage.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 class ConversationPage extends StatefulWidget {
   static const String routeName = '/conversationPage';
@@ -37,19 +37,11 @@ class _ConversationPageState extends State<ConversationPage> {
       _conversationId = args['conversationId'] as String?;
       _property = args['property'] as Property?;
     } else if (args is Property) {
-      // Fallback si seul property est passé (vieux code)
       _property = args;
     }
     
     if (_conversationId != null) {
       context.read<MessagesProvider>().selectConversation(_conversationId!);
-    }
-
-    // Pre-fill message if coming from property page for the first time
-    if (_property != null && _messageController.text.isEmpty) {
-       // On peut préremplir seulement si la conversation est vide ou nouvelle,
-       // mais ici on laisse l'utilisateur écrire.
-       // _messageController.text = ... 
     }
   }
 
@@ -93,7 +85,9 @@ class _ConversationPageState extends State<ConversationPage> {
   Widget build(BuildContext context) {
     final messagesProvider = context.watch<MessagesProvider>();
     final messages = messagesProvider.currentMessages;
-    final currentUser = FirebaseAuth.instance.currentUser;
+    // Use Supabase Auth instead of Firebase
+    final currentUser = Supabase.instance.client.auth.currentUser;
+    final currentUserId = currentUser?.id;
 
     return Scaffold(
       appBar: AppBar(
@@ -120,21 +114,12 @@ class _ConversationPageState extends State<ConversationPage> {
                   padding: const EdgeInsets.all(8),
                   itemCount: messages.length,
                   itemBuilder: (context, index) {
-                    // Afficher les messages du plus ancien au plus récent pour le chat
-                    // Mais attention, `getMessages` retourne souvent du plus récent au plus ancien.
-                    // On va inverser l'index si nécessaire ou inverser la liste dans le provider.
-                    // Ici on assume que `currentMessages` est trié du plus ancien au plus récent 
-                    // ou on l'inverse visuellement avec `reverse: true` dans ListView si c'était l'inverse.
-                    // Mais `MessagesService` trie par timestamp DESC. Donc index 0 est le plus récent.
-                    // Une ListView standard affiche index 0 en haut. 
-                    // Pour un chat, on veut index 0 en bas (le plus récent).
-                    
-                    // Approche standard chat : reverse: true
                     final message = messages[index];
-                    final isMe = message.senderId == currentUser?.uid;
+                    // Check against Supabase ID
+                    final isMe = message.senderId == currentUserId;
                     return _buildMessageBubble(message, isMe);
                   },
-                  reverse: true, // Important car la liste arrive souvent triée par date DESC
+                  reverse: true,
                 ),
           ),
           _buildMessageInput(),

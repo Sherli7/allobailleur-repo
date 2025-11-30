@@ -1,20 +1,23 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:supabase_flutter/supabase_flutter.dart'; // Migration vers Supabase
 import 'package:rent_house/Screens/searchPage.dart';
 import 'package:rent_house/Screens/favoritesPage.dart';
 import 'package:rent_house/Screens/createPropertyPage.dart';
 import 'package:rent_house/Screens/viewProfilePage.dart';
 import 'package:rent_house/Screens/propertyDetailsPage.dart';
 import 'package:rent_house/Screens/loginPage.dart';
-import 'package:rent_house/Screens/bookingsPage.dart'; // Ajout de l'import manquant
+import 'package:rent_house/Screens/bookingsPage.dart';
+import 'package:rent_house/Screens/bookPostingPage.dart';
 import 'package:rent_house/Providers/property_provider.dart';
 import 'package:rent_house/Models/property.dart';
+import 'package:rent_house/Services/AuthService.dart'; // Import AuthService
 import 'dart:math';
 import 'package:geolocator/geolocator.dart';
 import 'package:rent_house/Widgets/property_card.dart';
 import 'package:shimmer/shimmer.dart';
-import 'package:flutter_svg/flutter_svg.dart'; // Ajout pour SVG
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:rent_house/l10n/app_localizations.dart'; // Import Localizations
 
 class GuestHomePage extends StatefulWidget {
   static const String routeName = '/home';
@@ -29,6 +32,7 @@ class _GuestHomePageState extends State<GuestHomePage> {
   late final List<Widget> _pages;
   final List<GlobalKey<NavigatorState>> _navigatorKeys =
       List.generate(4, (index) => GlobalKey<NavigatorState>());
+  final _supabase = Supabase.instance.client; // Client Supabase
 
   @override
   void initState() {
@@ -41,7 +45,8 @@ class _GuestHomePageState extends State<GuestHomePage> {
     ];
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final userId = FirebaseAuth.instance.currentUser?.uid;
+      // Migration FirebaseAuth -> Supabase
+      final userId = _supabase.auth.currentUser?.id;
       if (userId != null) {
         context.read<PropertyProvider>().loadFavorites(userId);
       }
@@ -49,8 +54,79 @@ class _GuestHomePageState extends State<GuestHomePage> {
     });
   }
 
+  // Fonction pour gérer le flux "Devenir Hôte"
+  Future<void> _handleBecomeHost(BuildContext context) async {
+    final user = _supabase.auth.currentUser;
+    if (user == null) {
+      Navigator.pushNamed(context, LoginPage.routeName);
+      return;
+    }
+
+    // Vérifier si l'utilisateur est déjà hôte (owner)
+    // On vérifie les métadonnées (mis à jour par AuthService)
+    final isHost = user.userMetadata?['isHost'] == true ||
+        user.userMetadata?['role'] == 'owner';
+
+    if (isHost) {
+      // Déjà hôte -> Accès direct
+      Navigator.pushNamed(context, CreatePropertyPage.routeName);
+    } else {
+      // Pas encore hôte -> Modale de confirmation
+      final shouldBecomeHost = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Devenez Bailleur'),
+          content: const Text(
+              'Pour publier une propriété, vous devez activer votre compte Bailleur.\n\n'
+              'Cela vous permettra de gérer vos annonces et de recevoir des réservations.\n'
+              'C\'est gratuit et instantané.'),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Plus tard'),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).primaryColor),
+              child: const Text('Activer maintenant',
+                  style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      );
+
+      if (shouldBecomeHost == true) {
+        try {
+          // Appel du service
+          await AuthService().becomeHost();
+
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                  content:
+                      Text('Félicitations ! Vous êtes maintenant Bailleur.')),
+            );
+            // Redirection
+            Navigator.pushNamed(context, CreatePropertyPage.routeName);
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('Erreur: $e')),
+            );
+          }
+        }
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
+    // Exemple d'utilisation de la localisation (si disponible, sinon fallback)
+    // final l10n = AppLocalizations.of(context);
+    // Pour l'instant on garde le texte en dur pour éviter les erreurs si l10n n'est pas généré
+
     return Scaffold(
       body: Stack(
         children: List.generate(_pages.length, (index) {
@@ -63,7 +139,6 @@ class _GuestHomePageState extends State<GuestHomePage> {
                   return MaterialPageRoute(
                       builder: (_) => _pages[index], settings: settings);
                 }
-                // Routes partagées
                 if (settings.name == '/propertyDetails' ||
                     settings.name == PropertyDetailsPage.routeName) {
                   final prop = settings.arguments as Property?;
@@ -73,12 +148,11 @@ class _GuestHomePageState extends State<GuestHomePage> {
                         settings: settings);
                   }
                 }
-                // Correction de la route BookingPage
-                if (settings.name == BookingPage.routeName) {
+                if (settings.name == BookPostingPage.routeName) {
                   final prop = settings.arguments as Property?;
                   if (prop != null) {
                     return MaterialPageRoute(
-                        builder: (_) => BookingPage(property: prop),
+                        builder: (_) => BookPostingPage(property: prop),
                         settings: settings);
                   }
                 }
@@ -110,7 +184,8 @@ class _GuestHomePageState extends State<GuestHomePage> {
               const TextStyle(fontWeight: FontWeight.w500, fontSize: 12),
           onTap: (index) {
             if (index == 2 || index == 3) {
-              final user = FirebaseAuth.instance.currentUser;
+              // Vérification Auth Supabase
+              final user = _supabase.auth.currentUser;
               if (user == null) {
                 Navigator.pushNamed(context, LoginPage.routeName);
                 return;
@@ -146,14 +221,7 @@ class _GuestHomePageState extends State<GuestHomePage> {
       ),
       floatingActionButton: _currentIndex == 0
           ? FloatingActionButton(
-              onPressed: () {
-                final user = FirebaseAuth.instance.currentUser;
-                if (user == null) {
-                  Navigator.pushNamed(context, LoginPage.routeName);
-                } else {
-                  Navigator.pushNamed(context, CreatePropertyPage.routeName);
-                }
-              },
+              onPressed: () => _handleBecomeHost(context),
               child: const Icon(Icons.add),
               tooltip: 'Publier',
             )
@@ -162,6 +230,7 @@ class _GuestHomePageState extends State<GuestHomePage> {
   }
 }
 
+// ... Le reste de la classe HomeContentPage reste identique (je le réécris pour complétude du fichier)
 class HomeContentPage extends StatefulWidget {
   const HomeContentPage({super.key});
 
@@ -252,6 +321,8 @@ class _HomeContentPageState extends State<HomeContentPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    // Récupération des textes localisés (exemple)
+    // final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -298,13 +369,13 @@ class _HomeContentPageState extends State<HomeContentPage> {
                           children: [
                             SvgPicture.asset(
                               'assets/images/logo.svg',
-                              height: 40, // Ajustez la taille selon besoin
+                              height: 40,
                               colorFilter: const ColorFilter.mode(
-                                  Colors.white, BlendMode.srcIn), // Logo en blanc
+                                  Colors.white, BlendMode.srcIn),
                             ),
                             const SizedBox(width: 10),
                             const Text(
-                              'Allô Bailleur', // On garde le nom à côté ou on l'enlève si le logo suffit
+                              'Allô Bailleur',
                               style: TextStyle(
                                 color: Colors.white,
                                 fontSize: 26,

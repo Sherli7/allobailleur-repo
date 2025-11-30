@@ -5,10 +5,12 @@ import 'package:rent_house/Providers/property_provider.dart';
 import 'package:rent_house/Providers/auth_provider.dart' as app_auth;
 import 'package:rent_house/Providers/review_provider.dart';
 import 'package:rent_house/Screens/editPropertyPage.dart';
-import 'package:rent_house/Screens/bookingsPage.dart';
+import 'package:rent_house/Screens/bookPostingPage.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:rent_house/Services/messages_service.dart';
 import 'package:rent_house/Screens/conversation_page.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:rent_house/l10n/app_localizations.dart'; // Localization
 
 class PropertyDetailsPage extends StatefulWidget {
   static const String routeName = '/propertyDetailsRoute';
@@ -29,8 +31,6 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
   @override
   void initState() {
     super.initState();
-    // Capture provider outside the post frame callback to avoid using
-    // BuildContext across async gaps (analyzer warning).
     final initialProvider =
         Provider.of<PropertyProvider>(context, listen: false);
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -40,7 +40,6 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
           _isFavorite = favs.any((p) => p.id == widget.property.id);
         });
       }
-      // Load reviews
       context.read<ReviewProvider>().loadReviews(widget.property.id);
     });
     _imagePageController = PageController();
@@ -55,20 +54,17 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
   Future<void> _toggleFavorite() async {
     final propertyProvider =
         Provider.of<PropertyProvider>(context, listen: false);
-    // Optimistic update: toggle immediately for better UX
     setState(() {
       _isFavorite = !_isFavorite;
     });
     try {
       final changed = await propertyProvider.toggleFavorite(widget.property);
       if (!changed) {
-        // Revert if failed
         setState(() {
           _isFavorite = !_isFavorite;
         });
       }
     } catch (e) {
-      // Revert on error
       setState(() {
         _isFavorite = !_isFavorite;
       });
@@ -79,64 +75,69 @@ class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
   Future<void> _shareProperty() async {
     try {
       final property = widget.property;
-      // Créer un lien partageable (deep link ou lien web)
       final propertyLink = 'https://allobailleur.app/property/${property.id}';
+      // Note: Localization for share text inside function might be tricky without context if async gap
+      // But here we are in State, so 'context' is available (check mounted).
+      // For simplicity, we keep hardcoded or minimal text here or use context.
 
       final shareText = '''
 🏠 ${property.title}
 
 📍 ${property.city}, ${property.district ?? property.country}
 💰 ${property.price.toStringAsFixed(0)} ${property.currency}/mois
-🏠 ${property.bedrooms} ch. • 🛁 ${property.bathrooms} sdb • 📐 ${property.surface?.toInt() ?? 0} m²
 
 ${property.description}
 
-🔗 Voir l'annonce complète : $propertyLink
-
-Découvrez cette propriété sur Allô Bailleur !
-#AlloBailleur #Location #${property.city}
+🔗 $propertyLink
       '''
           .trim();
 
       await Share.share(
         shareText,
-        subject: 'Découvrez cette propriété : ${property.title}',
+        subject: property.title,
       );
     } catch (e) {
       debugPrint('Erreur lors du partage: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Erreur lors du partage')),
+          SnackBar(
+              content: Text(
+                  AppLocalizations.of(context)?.shareError ?? 'Error sharing')),
         );
       }
     }
   }
 
   Future<void> _handleMessageButton() async {
-    final user = Provider.of<app_auth.AuthProvider>(context, listen: false)
-        .firebaseUser;
-    
-    if (user == null) {
+    final l10n = AppLocalizations.of(context);
+    // Supabase Auth check
+    final supabaseUser = Supabase.instance.client.auth.currentUser;
+
+    if (supabaseUser == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+            content: Text('Veuillez vous connecter pour envoyer un message.')),
+      );
       Navigator.of(context).pushNamed('/login');
       return;
     }
 
-    if (user.uid == widget.property.ownerId) {
-       ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Vous ne pouvez pas vous envoyer de message à vous-même.')),
-       );
-       return;
+    if (supabaseUser.id == widget.property.ownerId) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+            content:
+                Text(l10n?.selfMessageError ?? 'You cannot message yourself.')),
+      );
+      return;
     }
 
     setState(() => _isMessageLoading = true);
     try {
-      // Récupérer ou créer la conversation
       final conversationId = await MessagesService()
           .getOrCreateConversation(widget.property.ownerId, widget.property.id);
-      
+
       if (!mounted) return;
-      
-      // Naviguer vers la page de conversation
+
       Navigator.of(context).pushNamed(
         ConversationPage.routeName,
         arguments: {
@@ -148,7 +149,7 @@ Découvrez cette propriété sur Allô Bailleur !
       debugPrint('Erreur création conversation: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Impossible de démarrer la conversation')),
+          SnackBar(content: Text('${l10n?.conversationError ?? "Error"}: $e')),
         );
       }
     } finally {
@@ -174,6 +175,7 @@ Découvrez cette propriété sur Allô Bailleur !
   }
 
   Widget _buildReviewsSection() {
+    final l10n = AppLocalizations.of(context);
     return Consumer<ReviewProvider>(
       builder: (context, reviewProvider, child) {
         return Column(
@@ -182,19 +184,19 @@ Découvrez cette propriété sur Allô Bailleur !
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Avis',
-                    style:
-                        TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                Text(l10n?.reviews ?? 'Avis',
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.bold)),
                 TextButton(
                   onPressed: () => _showAddReviewDialog(context),
-                  child: const Text('Ajouter un avis'),
+                  child: Text(l10n?.addReview ?? 'Ajouter un avis'),
                 ),
               ],
             ),
             if (reviewProvider.isLoading)
               const Center(child: CircularProgressIndicator())
             else if (reviewProvider.reviews.isEmpty)
-              const Text('Aucun avis pour le moment.')
+              Text(l10n?.noReviewsYet ?? 'Aucun avis.')
             else
               Column(
                 children: [
@@ -202,7 +204,7 @@ Découvrez cette propriété sur Allô Bailleur !
                     children: [
                       const Icon(Icons.star, color: Colors.amber),
                       Text(
-                          '${reviewProvider.averageRating.toStringAsFixed(1)} (${reviewProvider.reviews.length} avis)'),
+                          '${reviewProvider.averageRating.toStringAsFixed(1)} (${reviewProvider.reviews.length})'),
                     ],
                   ),
                   const SizedBox(height: 8),
@@ -316,22 +318,20 @@ Découvrez cette propriété sur Allô Bailleur !
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final displayCurrency =
         widget.property.currency.isNotEmpty ? widget.property.currency : 'XAF';
-    final authProvider =
-        Provider.of<app_auth.AuthProvider>(context, listen: false);
-    final currentUid = authProvider.firebaseUser?.uid;
+
+    final currentUid = Supabase.instance.client.auth.currentUser?.id;
+
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.property.title),
         actions: [
-          // Show edit button to owner (use build context's provider)
           if (currentUid != null && currentUid == widget.property.ownerId)
             IconButton(
               icon: const Icon(Icons.edit),
               onPressed: () async {
-                // Capture navigator and provider before awaiting to avoid
-                // using BuildContext across async gaps.
                 final navigator = Navigator.of(context);
                 final provider =
                     Provider.of<PropertyProvider>(context, listen: false);
@@ -340,7 +340,9 @@ Découvrez cette propriété sur Allô Bailleur !
                 ));
                 if (!mounted) return;
                 await provider.fetchProperties();
-                await provider.loadHostProperties(currentUid);
+                if (currentUid != null) {
+                  await provider.loadHostProperties(currentUid);
+                }
               },
             ),
           IconButton(
@@ -436,16 +438,18 @@ Découvrez cette propriété sur Allô Bailleur !
               spacing: 8,
               runSpacing: 8,
               children: [
-                _featureChip(Icons.bed, '${widget.property.bedrooms} chambres'),
-                _featureChip(
-                    Icons.bathroom, '${widget.property.bathrooms} sdb'),
+                _featureChip(Icons.bed,
+                    '${widget.property.bedrooms} ${l10n?.bedrooms ?? "chambres"}'),
+                _featureChip(Icons.bathroom,
+                    '${widget.property.bathrooms} ${l10n?.bathrooms ?? "sdb"}'),
                 _featureChip(
                     Icons.square_foot, '${widget.property.surface ?? 0} m²'),
               ],
             ),
             const SizedBox(height: 16),
-            const Text('Description',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            Text(l10n?.description ?? 'Description',
+                style:
+                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             Text(widget.property.description),
             const SizedBox(height: 16),
@@ -461,29 +465,31 @@ Découvrez cette propriété sur Allô Bailleur !
             children: [
               Expanded(
                 child: OutlinedButton.icon(
-                  icon: _isMessageLoading 
-                      ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)) 
+                  icon: _isMessageLoading
+                      ? const SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(strokeWidth: 2))
                       : const Icon(Icons.chat_bubble_outline),
                   onPressed: _isMessageLoading ? null : _handleMessageButton,
-                  label: const Text('Message'),
+                  label: Text(l10n?.sendMessage ?? 'Message'),
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: ElevatedButton(
                   onPressed: () {
-                    final user =
-                        Provider.of<app_auth.AuthProvider>(context, listen: false)
-                            .firebaseUser;
+                    final user = Supabase.instance.client.auth.currentUser;
                     if (user == null) {
                       Navigator.of(context).pushNamed('/login');
                     } else {
                       Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) => BookingPage(property: widget.property),
+                        builder: (_) =>
+                            BookPostingPage(property: widget.property),
                       ));
                     }
                   },
-                  child: const Text('Réserver'),
+                  child: Text(l10n?.book ?? 'Réserver'),
                 ),
               ),
             ],

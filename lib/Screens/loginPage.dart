@@ -1,8 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-// Removed google_fonts and local_auth to avoid extra dependencies
-// import 'package:google_fonts/google_fonts.dart'; // Ajoutez ce package
-import 'dart:ui' show ImageFilter;
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:rent_house/Screens/guestHomePage.dart';
 import 'package:rent_house/Screens/signUpPage.dart';
@@ -26,7 +23,10 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   late Animation<Offset> _slideAnimation;
   late AnimationController _staggerController;
   late List<Animation<double>> _staggerAnimations;
-  // Biometric login removed (not configured in this project)
+
+  // SVG for Google Logo
+  static const String _googleLogoSvg = '''<svg version="1.1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48">
+<g><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"></path><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"></path><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"></path><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"></path><path fill="none" d="M0 0h48v48H0z"></path></g></svg>''';
 
   @override
   void initState() {
@@ -43,7 +43,6 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
       end: Offset.zero,
     ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeOutBack));
 
-    // Animation staggerée pour entrée séquentielle
     _staggerController = AnimationController(
       duration: const Duration(milliseconds: 800),
       vsync: this,
@@ -85,6 +84,15 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
     }
   }
 
+  Future<void> _handleGoogleSignIn() async {
+    final authProvider =
+        Provider.of<app_auth.AuthProvider>(context, listen: false);
+    final success = await authProvider.signInWithGoogle();
+    if (success && mounted) {
+      Navigator.pushReplacementNamed(context, GuestHomePage.routeName);
+    }
+  }
+
   void _showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -98,7 +106,6 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
         backgroundColor: Colors.red.shade400,
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-        duration: const Duration(seconds: 4),
       ),
     );
   }
@@ -107,532 +114,282 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: RadialGradient(
-            center: Alignment.topLeft,
-            radius: 1.5,
-            colors: [
-              Color(0xFF0D47A1), // Bleu foncé
-              Color(0xFF1976D2), // Bleu principal
-              Color(0xFF42A5F5), // Bleu clair
-            ],
-            stops: [0.0, 0.5, 1.0],
-          ),
-        ),
-        child: SafeArea(
-          child: FadeTransition(
-            opacity: _fadeAnimation,
-            child: SlideTransition(
-              position: _slideAnimation,
-              child: LayoutBuilder(
-                builder: (context, constraints) {
-                  final isTablet = constraints.maxWidth > 600;
-                  return Center(
+      backgroundColor: Colors.white,
+      body: SafeArea(
+        child: FadeTransition(
+          opacity: _fadeAnimation,
+          child: SlideTransition(
+            position: _slideAnimation,
+            child: LayoutBuilder(
+              builder: (context, constraints) {
+                // Centered layout with max width for larger screens
+                return Center(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24),
                     child: ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxWidth: isTablet ? 600 : 520,
-                        maxHeight: isTablet ? 700 : double.infinity,
-                      ),
-                      child: Card(
-                        elevation: 0,
-                        color:
-                            Color.fromRGBO(255, 255, 255, 0.1), // Glassmorphism
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(24),
-                          side: BorderSide(
-                              color: Color.fromRGBO(255, 255, 255, 0.2)),
-                        ),
-                        margin: EdgeInsets.symmetric(
-                          horizontal: isTablet ? 40 : 20,
-                          vertical: isTablet ? 20 : 40,
-                        ),
-                        child: BackdropFilter(
-                          filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-                          child: Padding(
-                            padding: EdgeInsets.all(isTablet ? 40 : 32),
-                            child: Form(
-                              key: _formKey,
-                              child: Consumer<app_auth.AuthProvider>(
-                                builder: (context, authProvider, _) {
-                                  final isLoading = authProvider.isLoading;
-                                  final error = authProvider.errorMessage;
-                                  if (error != null) {
-                                    WidgetsBinding.instance
-                                        .addPostFrameCallback((_) {
-                                      if (mounted) _showError(error);
-                                    });
-                                  }
+                      constraints: const BoxConstraints(maxWidth: 450),
+                      child: Form(
+                        key: _formKey,
+                        child: Consumer<app_auth.AuthProvider>(
+                          builder: (context, authProvider, _) {
+                            final isLoading = authProvider.isLoading;
+                            final error = authProvider.errorMessage;
+                            if (error != null) {
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (mounted) _showError(error);
+                              });
+                            }
 
-                                  return SingleChildScrollView(
-                                    child: Column(
-                                      mainAxisSize: MainAxisSize.min,
+                            return Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                // Logo
+                                FadeTransition(
+                                  opacity: _staggerAnimations[0],
+                                  child: ScaleTransition(
+                                    scale: _staggerAnimations[0].drive(
+                                      Tween(begin: 0.8, end: 1.0),
+                                    ),
+                                    child: SizedBox(
+                                      height: 100,
+                                      width: 100,
+                                      child: SvgPicture.asset(
+                                        'assets/images/logo.svg',
+                                        fit: BoxFit.contain,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+                                
+                                // Title
+                                FadeTransition(
+                                  opacity: _staggerAnimations[1],
+                                  child: Text(
+                                    'Bienvenue',
+                                    textAlign: TextAlign.center,
+                                    style: theme.textTheme.headlineMedium?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                FadeTransition(
+                                  opacity: _staggerAnimations[1],
+                                  child: Text(
+                                    'Connectez-vous à votre compte AllôBailleur',
+                                    textAlign: TextAlign.center,
+                                    style: theme.textTheme.bodyLarge?.copyWith(
+                                      color: Colors.grey[600],
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 40),
+
+                                // Email Input
+                                FadeTransition(
+                                  opacity: _staggerAnimations[2],
+                                  child: TextFormField(
+                                    controller: _emailController,
+                                    keyboardType: TextInputType.emailAddress,
+                                    validator: (value) {
+                                      if (value == null || value.isEmpty) {
+                                        return 'Email requis';
+                                      }
+                                      return null;
+                                    },
+                                    decoration: InputDecoration(
+                                      labelText: 'Email',
+                                      prefixIcon: const Icon(Icons.email_outlined),
+                                      filled: true,
+                                      fillColor: Colors.grey[50],
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide(color: Colors.grey[200]!),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide(color: theme.primaryColor),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 16),
+
+                                // Password Input
+                                FadeTransition(
+                                  opacity: _staggerAnimations[2],
+                                  child: TextFormField(
+                                    controller: _passwordController,
+                                    obscureText: _obscurePassword,
+                                    validator: (value) {
+                                      if (value == null || value.isEmpty) {
+                                        return 'Mot de passe requis';
+                                      }
+                                      return null;
+                                    },
+                                    decoration: InputDecoration(
+                                      labelText: 'Mot de passe',
+                                      prefixIcon: const Icon(Icons.lock_outline),
+                                      suffixIcon: IconButton(
+                                        icon: Icon(_obscurePassword
+                                            ? Icons.visibility_off
+                                            : Icons.visibility),
+                                        onPressed: () => setState(() =>
+                                            _obscurePassword = !_obscurePassword),
+                                      ),
+                                      filled: true,
+                                      fillColor: Colors.grey[50],
+                                      border: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      enabledBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide(color: Colors.grey[200]!),
+                                      ),
+                                      focusedBorder: OutlineInputBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                        borderSide: BorderSide(color: theme.primaryColor),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+
+                                // Login Button
+                                FadeTransition(
+                                  opacity: _staggerAnimations[3],
+                                  child: ElevatedButton(
+                                    onPressed: isLoading ? null : _login,
+                                    style: ElevatedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(vertical: 16),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      backgroundColor: theme.primaryColor,
+                                      elevation: 2,
+                                    ),
+                                    child: isLoading
+                                        ? const SizedBox(
+                                            height: 20,
+                                            width: 20,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                              color: Colors.white,
+                                            ),
+                                          )
+                                        : const Text(
+                                            'Se connecter',
+                                            style: TextStyle(
+                                              fontSize: 16,
+                                              fontWeight: FontWeight.bold,
+                                              color: Colors.white,
+                                            ),
+                                          ),
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+
+                                // Divider Or
+                                FadeTransition(
+                                  opacity: _staggerAnimations[3],
+                                  child: Row(
+                                    children: [
+                                      Expanded(child: Divider(color: Colors.grey[300])),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                                        child: Text(
+                                          'OU',
+                                          style: TextStyle(
+                                            color: Colors.grey[500],
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ),
+                                      Expanded(child: Divider(color: Colors.grey[300])),
+                                    ],
+                                  ),
+                                ),
+                                const SizedBox(height: 24),
+
+                                // Google Button
+                                FadeTransition(
+                                  opacity: _staggerAnimations[4],
+                                  child: OutlinedButton(
+                                    onPressed: isLoading ? null : _handleGoogleSignIn,
+                                    style: OutlinedButton.styleFrom(
+                                      padding: const EdgeInsets.symmetric(vertical: 16),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(12),
+                                      ),
+                                      side: BorderSide(color: Colors.grey[300]!),
+                                      backgroundColor: Colors.white,
+                                    ),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.center,
                                       children: [
-                                        // Logo avec animation stagger
-                                        FadeTransition(
-                                          opacity: _staggerAnimations[0],
-                                          child: ScaleTransition(
-                                            scale: _staggerAnimations[0].drive(
-                                              Tween(begin: 0.8, end: 1.0),
-                                            ),
-                                            child: Container(
-                                              width: 90,
-                                              height: 90,
-                                              decoration: BoxDecoration(
-                                                shape: BoxShape.circle,
-                                                gradient: LinearGradient(
-                                                  colors: [
-                                                    theme.colorScheme.primary,
-                                                    theme.colorScheme.primary
-                                                        .withAlpha((0.7 * 255)
-                                                            .round()),
-                                                  ],
-                                                ),
-                                              ),
-                                              child: const Icon(
-                                                Icons.home,
-                                                size: 50,
-                                                color: Colors.white,
-                                              ),
-                                            ),
-                                          ),
+                                        SizedBox(
+                                          height: 24,
+                                          width: 24,
+                                          child: SvgPicture.string(_googleLogoSvg),
                                         ),
-                                        const SizedBox(height: 20),
-                                        // Titre avec stagger
-                                        FadeTransition(
-                                          opacity: _staggerAnimations[1],
-                                          child: SlideTransition(
-                                            position:
-                                                _staggerAnimations[1].drive(
-                                              Tween<Offset>(
-                                                begin: const Offset(0, 0.2),
-                                                end: Offset.zero,
-                                              ),
-                                            ),
-                                            child: Text(
-                                              'AllôBailleur',
-                                              style: theme
-                                                  .textTheme.headlineLarge
-                                                  ?.copyWith(
-                                                fontWeight: FontWeight.w700,
-                                                color: Colors.white,
-                                              ),
-                                            ),
+                                        const SizedBox(width: 12),
+                                        const Text(
+                                          'Continuer avec Google',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w500,
+                                            color: Colors.black87,
                                           ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        FadeTransition(
-                                          opacity: _staggerAnimations[1],
-                                          child: Text(
-                                            'Connectez-vous pour continuer',
-                                            style: theme.textTheme.bodyLarge
-                                                ?.copyWith(
-                                              color: Color.fromRGBO(
-                                                  255, 255, 255, 0.8),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 32),
-                                        // Email field avec focus animation
-                                        FadeTransition(
-                                          opacity: _staggerAnimations[2],
-                                          child: SlideTransition(
-                                            position:
-                                                _staggerAnimations[2].drive(
-                                              Tween<Offset>(
-                                                begin: const Offset(0, 0.1),
-                                                end: Offset.zero,
-                                              ),
-                                            ),
-                                            child: TextFormField(
-                                              controller: _emailController,
-                                              keyboardType:
-                                                  TextInputType.emailAddress,
-                                              autovalidateMode: AutovalidateMode
-                                                  .onUserInteraction,
-                                              validator: (value) {
-                                                if (value == null ||
-                                                    value.isEmpty) {
-                                                  return 'Email requis';
-                                                }
-                                                if (!RegExp(
-                                                        r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                                                    .hasMatch(value)) {
-                                                  return 'Email invalide';
-                                                }
-                                                return null;
-                                              },
-                                              decoration: InputDecoration(
-                                                labelText: 'Email',
-                                                labelStyle:
-                                                    theme.textTheme.bodyMedium,
-                                                prefixIcon: Icon(
-                                                    Icons.email_outlined,
-                                                    color: theme
-                                                        .colorScheme.primary),
-                                                suffixIcon: _emailController
-                                                            .text.isNotEmpty &&
-                                                        RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                                                            .hasMatch(
-                                                                _emailController
-                                                                    .text)
-                                                    ? const Icon(
-                                                        Icons.check_circle,
-                                                        color: Colors.green,
-                                                        semanticLabel: 'Valide')
-                                                    : null,
-                                                border: OutlineInputBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(16),
-                                                  borderSide: BorderSide(
-                                                      color: Color.fromRGBO(
-                                                          255, 255, 255, 0.3)),
-                                                ),
-                                                focusedBorder:
-                                                    OutlineInputBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(16),
-                                                  borderSide: BorderSide(
-                                                      color: theme
-                                                          .colorScheme.primary,
-                                                      width: 2),
-                                                ),
-                                                filled: true,
-                                                fillColor: Color.fromRGBO(
-                                                    255, 255, 255, 0.9),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 16),
-                                        // Password field
-                                        FadeTransition(
-                                          opacity: _staggerAnimations[2],
-                                          child: SlideTransition(
-                                            position:
-                                                _staggerAnimations[2].drive(
-                                              Tween<Offset>(
-                                                begin: const Offset(0, 0.1),
-                                                end: Offset.zero,
-                                              ),
-                                            ),
-                                            child: TextFormField(
-                                              controller: _passwordController,
-                                              obscureText: _obscurePassword,
-                                              autovalidateMode: AutovalidateMode
-                                                  .onUserInteraction,
-                                              validator: (value) {
-                                                if (value == null ||
-                                                    value.isEmpty) {
-                                                  return 'Mot de passe requis';
-                                                }
-                                                if (value.length < 6) {
-                                                  return 'Min 6 caractères';
-                                                }
-                                                return null;
-                                              },
-                                              decoration: InputDecoration(
-                                                labelText: 'Mot de passe',
-                                                labelStyle:
-                                                    theme.textTheme.bodyMedium,
-                                                prefixIcon: Icon(
-                                                    Icons.lock_outline,
-                                                    color: theme
-                                                        .colorScheme.primary),
-                                                suffixIcon: Row(
-                                                  mainAxisSize:
-                                                      MainAxisSize.min,
-                                                  children: [
-                                                    _passwordController
-                                                                .text.length >=
-                                                            6
-                                                        ? const Icon(
-                                                            Icons.check_circle,
-                                                            color: Colors.green,
-                                                            size: 20)
-                                                        : const SizedBox(
-                                                            width: 0),
-                                                    IconButton(
-                                                      icon: Icon(
-                                                        _obscurePassword
-                                                            ? Icons
-                                                                .visibility_off
-                                                            : Icons.visibility,
-                                                        color: Colors.grey[600],
-                                                      ),
-                                                      onPressed: () => setState(
-                                                          () => _obscurePassword =
-                                                              !_obscurePassword),
-                                                    ),
-                                                  ],
-                                                ),
-                                                border: OutlineInputBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(16),
-                                                  borderSide: BorderSide(
-                                                      color: Color.fromRGBO(
-                                                          255, 255, 255, 0.3)),
-                                                ),
-                                                focusedBorder:
-                                                    OutlineInputBorder(
-                                                  borderRadius:
-                                                      BorderRadius.circular(16),
-                                                  borderSide: BorderSide(
-                                                      color: theme
-                                                          .colorScheme.primary,
-                                                      width: 2),
-                                                ),
-                                                filled: true,
-                                                fillColor: Color.fromRGBO(
-                                                    255, 255, 255, 0.9),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Align(
-                                          alignment: Alignment.centerRight,
-                                          child: TextButton(
-                                            onPressed: () => Navigator.pushNamed(
-                                                context,
-                                                '/forgot-password'), // Route à ajouter
-                                            child: Text(
-                                              'Mot de passe oublié ?',
-                                              style: theme.textTheme.bodySmall
-                                                  ?.copyWith(
-                                                color: Color.fromRGBO(
-                                                    255, 255, 255, 0.7),
-                                                fontSize: 14,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 32),
-                                        // Bouton principal avec dégradé
-                                        FadeTransition(
-                                          opacity: _staggerAnimations[3],
-                                          child: SlideTransition(
-                                            position:
-                                                _staggerAnimations[3].drive(
-                                              Tween<Offset>(
-                                                begin: const Offset(0, 0.2),
-                                                end: Offset.zero,
-                                              ),
-                                            ),
-                                            child: SizedBox(
-                                              width: double.infinity,
-                                              height: 56,
-                                              child: ElevatedButton(
-                                                onPressed:
-                                                    isLoading ? null : _login,
-                                                style: ElevatedButton.styleFrom(
-                                                  backgroundColor:
-                                                      Colors.transparent,
-                                                  shadowColor: theme
-                                                      .colorScheme.primary
-                                                      .withAlpha(
-                                                          (0.3 * 255).round()),
-                                                  elevation: 8,
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            16),
-                                                  ),
-                                                ),
-                                                child: Container(
-                                                  decoration: BoxDecoration(
-                                                    gradient: LinearGradient(
-                                                      colors: [
-                                                        theme.colorScheme
-                                                            .primary,
-                                                        theme
-                                                            .colorScheme.primary
-                                                            .withAlpha(
-                                                                (0.8 * 255)
-                                                                    .round()),
-                                                      ],
-                                                    ),
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            16),
-                                                  ),
-                                                  child: isLoading
-                                                      ? const Center(
-                                                          child: SizedBox(
-                                                            width: 24,
-                                                            height: 24,
-                                                            child:
-                                                                CircularProgressIndicator(
-                                                              strokeWidth: 2,
-                                                              valueColor:
-                                                                  AlwaysStoppedAnimation<
-                                                                          Color>(
-                                                                      Colors
-                                                                          .white),
-                                                            ),
-                                                          ),
-                                                        )
-                                                      : const Center(
-                                                          child: Text(
-                                                            'Se connecter',
-                                                            style: TextStyle(
-                                                              fontSize: 16,
-                                                              fontWeight:
-                                                                  FontWeight
-                                                                      .w600,
-                                                              color:
-                                                                  Colors.white,
-                                                            ),
-                                                          ),
-                                                        ),
-                                                ),
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 16),
-                                        Row(
-                                          children: const [
-                                            Expanded(
-                                                child: Divider(
-                                                    color: Colors.white24)),
-                                            Padding(
-                                              padding: EdgeInsets.symmetric(
-                                                  horizontal: 16),
-                                              child: Text('ou',
-                                                  style: TextStyle(
-                                                      color: Colors.white54)),
-                                            ),
-                                            Expanded(
-                                                child: Divider(
-                                                    color: Colors.white24)),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 16),
-                                        // Bouton Google
-                                        FadeTransition(
-                                          opacity: _staggerAnimations[4],
-                                          child: SlideTransition(
-                                            position:
-                                                _staggerAnimations[4].drive(
-                                              Tween<Offset>(
-                                                begin: const Offset(0, 0.2),
-                                                end: Offset.zero,
-                                              ),
-                                            ),
-                                            child: SizedBox(
-                                              width: double.infinity,
-                                              height: 56,
-                                              child: OutlinedButton.icon(
-                                                icon: SvgPicture.asset(
-                                                  'assets/images/logo.svg',
-                                                  width: 20,
-                                                  height: 20,
-                                                ),
-                                                label: Text(
-                                                  'Continuer avec Google',
-                                                  style: theme
-                                                      .textTheme.bodyMedium
-                                                      ?.copyWith(fontSize: 16),
-                                                ),
-                                                style: OutlinedButton.styleFrom(
-                                                  side: BorderSide(
-                                                      color: Color.fromRGBO(
-                                                          255, 255, 255, 0.3)),
-                                                  shape: RoundedRectangleBorder(
-                                                    borderRadius:
-                                                        BorderRadius.circular(
-                                                            16),
-                                                  ),
-                                                ),
-                                                onPressed: isLoading
-                                                    ? null
-                                                    : () async {
-                                                        final navigator =
-                                                            Navigator.of(
-                                                                context);
-                                                        final auth = Provider.of<
-                                                                app_auth
-                                                                .AuthProvider>(
-                                                            context,
-                                                            listen: false);
-                                                        final ok = await auth
-                                                            .signInWithGoogle();
-                                                        if (!mounted) return;
-                                                        if (ok) {
-                                                          navigator
-                                                              .pushReplacementNamed(
-                                                                  GuestHomePage
-                                                                      .routeName);
-                                                        }
-                                                      },
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                        const SizedBox(height: 16),
-                                        // Bouton biométrie (optionnel)
-                                        if (MediaQuery.of(context).size.width <
-                                            600) // Seulement mobile
-                                          TextButton.icon(
-                                            icon: const Icon(Icons.fingerprint,
-                                                color: Colors.white54,
-                                                size: 20),
-                                            label: Text(
-                                              'Connexion biométrique',
-                                              style: theme.textTheme.bodyMedium
-                                                  ?.copyWith(
-                                                color: Color.fromRGBO(
-                                                    255, 255, 255, 0.7),
-                                              ),
-                                            ),
-                                            onPressed: isLoading
-                                                ? null
-                                                : () => _showError(
-                                                    'Biometric login removed'),
-                                          ),
-                                        const SizedBox(height: 24),
-                                        // Lien inscription
-                                        Row(
-                                          mainAxisAlignment:
-                                              MainAxisAlignment.center,
-                                          children: [
-                                            Text(
-                                              "Pas de compte ? ",
-                                              style: theme.textTheme.bodyMedium
-                                                  ?.copyWith(
-                                                      color: Color.fromRGBO(
-                                                          255, 255, 255, 0.7)),
-                                            ),
-                                            TextButton(
-                                              onPressed: () =>
-                                                  Navigator.pushNamed(context,
-                                                      SignUpPage.routeName),
-                                              child: Text(
-                                                'S\'inscrire',
-                                                style: theme
-                                                    .textTheme.bodyMedium
-                                                    ?.copyWith(
-                                                  color: Colors.white,
-                                                  fontWeight: FontWeight.w600,
-                                                ),
-                                              ),
-                                            ),
-                                          ],
                                         ),
                                       ],
                                     ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
+                                  ),
+                                ),
+                                const SizedBox(height: 32),
+
+                                // Register Link
+                                FadeTransition(
+                                  opacity: _staggerAnimations[4],
+                                  child: Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Text(
+                                        'Pas de compte ?',
+                                        style: TextStyle(color: Colors.grey[600]),
+                                      ),
+                                      TextButton(
+                                        onPressed: () {
+                                          Navigator.pushNamed(
+                                              context, '/register'); // Use route name
+                                        },
+                                        child: Text(
+                                          'S\'inscrire',
+                                          style: TextStyle(
+                                            color: theme.primaryColor,
+                                            fontWeight: FontWeight.bold,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            );
+                          },
                         ),
                       ),
                     ),
-                  );
-                },
-              ),
+                  ),
+                );
+              },
             ),
           ),
         ),

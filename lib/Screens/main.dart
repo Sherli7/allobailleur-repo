@@ -5,7 +5,6 @@ import 'package:provider/provider.dart';
 import 'package:rent_house/Services/AuthService.dart';
 
 import 'package:rent_house/Models/property.dart';
-import 'package:rent_house/Screens/BookPostingPage.dart';
 import 'package:rent_house/Screens/guestHomePage.dart';
 import 'package:rent_house/Screens/loginPage.dart';
 import 'package:rent_house/Screens/personalInfoPage.dart';
@@ -67,7 +66,6 @@ class MyApp extends StatelessWidget {
           GuestHomePage.routeName: (context) => const GuestHomePage(),
           PersonalInfoPage.routeName: (context) => const PersonalInfoPage(),
           ViewProfilePage.routeName: (context) => const ViewProfilePage(),
-          BookPostingPage.routeName: (context) => const BookPostingPage(),
           ConversationPage.routeName: (context) => const ConversationPage(),
           CreatePropertyPage.routeName: (context) => const CreatePropertyPage(),
           SearchPage.routeName: (context) => const SearchPage(),

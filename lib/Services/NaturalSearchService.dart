@@ -108,10 +108,7 @@ class NaturalSearchService {
   Future<List<Property>> searchProperties(String naturalQuery) async {
     try {
       final filters = parseQuery(naturalQuery);
-      // Correction: "isAvailable" (avec guillemets pour respecter la casse si la colonne a été créée avec des guillemets dans Postgres)
-      // ou tout en minuscule si c'est standard. Dans seed_data.sql, c'est "isAvailable".
-      // Supabase Postgrest est sensible à la casse pour les colonnes entre guillemets.
-      // Essayons avec la notation exacte de la base de données.
+      // CORRECTION: isAvailable en CamelCase avec guillemets doubles
       var query = _supabase.from('properties').select().eq('"isAvailable"', true);
 
       // Application des filtres basiques

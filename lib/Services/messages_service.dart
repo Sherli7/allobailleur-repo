@@ -1,82 +1,73 @@
 import 'dart:async';
 import 'dart:io';
 import 'package:flutter/foundation.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
-import 'package:firebase_storage/firebase_storage.dart';
 import 'package:rent_house/Models/conversation.dart';
 import 'package:rent_house/Models/message.dart';
 import 'package:rent_house/Services/NotificationService.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 class MessagesService {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseStorage _storage = FirebaseStorage.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  CollectionReference<Map<String, dynamic>> _getConversationsRef(
-          String userId) =>
-      _firestore.collection('users').doc(userId).collection('conversations');
-
-  CollectionReference<Map<String, dynamic>> _getMessagesRef(
-          String conversationId) =>
-      _firestore
-          .collection('conversations')
-          .doc(conversationId)
-          .collection('messages');
+  /// Helper pour obtenir l'ID courant
+  String? _getCurrentUserId() {
+    return _supabase.auth.currentUser?.id;
+  }
 
   /// Charge les conversations d'un user (Stream pour real-time)
+  /// Utilise la table 'conversations' avec RLS qui filtre automatiquement les conversations du user.
   Stream<List<Conversation>> getUserConversations(String userId) {
-    return _getConversationsRef(userId).snapshots().asyncMap((snapshot) async {
-      final List<Conversation> conversations = [];
-      for (final doc in snapshot.docs) {
-        final data = doc.data();
-        final otherUserId = data['otherUserId'] as String;
-        final otherUserName = await _getUserName(otherUserId);
-        final lastMessageRef = data['lastMessageRef'] as DocumentReference?;
-        final lastMessageSnap =
-            lastMessageRef != null ? await lastMessageRef.get() : null;
-        final lastMessage = lastMessageSnap?.data() as Map<String, dynamic>?;
-        final unreadCount = data['unreadCount'] ?? 0;
+    return _supabase
+        .from('conversations')
+        .stream(primaryKey: ['id'])
+        .order('lastMessageTime', ascending: false)
+        .asyncMap((data) async {
+          final List<Conversation> conversations = [];
+          for (final item in data) {
+            final participants = List<String>.from(item['participants'] ?? []);
+            final otherUserId = participants.firstWhere(
+              (id) => id != userId,
+              orElse: () => '',
+            );
 
-        conversations.add(Conversation(
-          id: doc.id,
-          otherUserId: otherUserId,
-          otherUserName: otherUserName,
-          lastMessage: lastMessage?['text'] ?? '',
-          timestamp: lastMessage?['timestamp'] != null
-              ? DateTime.parse(lastMessage!['timestamp'])
-              : DateTime.now(),
-          unreadCount: unreadCount,
-        ));
-      }
-      // Trie par timestamp descendant
-      conversations.sort((a, b) => b.timestamp.compareTo(a.timestamp));
-      return conversations;
-    });
+            if (otherUserId.isEmpty) continue;
+
+            final otherUserName = await _getUserName(otherUserId);
+
+            // Calculer les non-lus: count messages where conversationId=id AND isRead=false AND senderId!=me
+            final unreadCount = await _supabase
+                .from('messages')
+                .count(CountOption.exact)
+                .eq('conversationId', item['id'])
+                .eq('isRead', false)
+                .neq('senderId', userId);
+
+            conversations.add(Conversation(
+              id: item['id'],
+              otherUserId: otherUserId,
+              otherUserName: otherUserName,
+              lastMessage: item['lastMessage'] ?? '',
+              timestamp: item['lastMessageTime'] != null
+                  ? DateTime.parse(item['lastMessageTime'])
+                  : DateTime.now(),
+              unreadCount: unreadCount,
+            ));
+          }
+          return conversations;
+        });
   }
 
-  /// Marque une conversation comme lue
+  /// Marque une conversation comme lue (tous les messages reçus)
   Future<void> markAsRead(String conversationId, String userId) async {
-    final batch = _firestore.batch();
-    // Update unreadCount à 0 pour ce user
-    final userConvRef = _getConversationsRef(userId).doc(conversationId);
-    batch.update(userConvRef, {'unreadCount': 0});
-
-    // Marque messages non lus comme lus (subcollection)
-    final messagesQuery = _getMessagesRef(conversationId)
-        .where('readBy', arrayContains: userId)
-        .where('isRead', isEqualTo: false);
-    final unreadMessages = await messagesQuery.get();
-    for (final msgDoc in unreadMessages.docs) {
-      batch.update(msgDoc.reference, {'isRead': true});
-    }
-
-    await batch.commit();
+    await _supabase
+        .from('messages')
+        .update({'isRead': true})
+        .eq('conversationId', conversationId)
+        .neq('senderId', userId)
+        .eq('isRead', false);
   }
 
-  /// Envoie un message dans une conversation (texte, image, ou vidéo)
+  /// Envoie un message dans une conversation
   Future<void> sendMessage(
     String conversationId,
     String text, {
@@ -84,88 +75,62 @@ class MessagesService {
     String? videoUrl,
     required String senderId,
   }) async {
-    final messageRef = _getMessagesRef(conversationId).doc();
+    // 1. Insérer le message
     final messageData = {
-      'id': messageRef.id,
+      'conversationId': conversationId,
       'senderId': senderId,
-      'text': text,
-      if (imageUrl != null) 'imageUrl': imageUrl,
-      if (videoUrl != null) 'videoUrl': videoUrl,
-      'timestamp': FieldValue.serverTimestamp(),
+      'content': text,
+      'mediaUrl': imageUrl ?? videoUrl,
+      'mediaType':
+          imageUrl != null ? 'image' : (videoUrl != null ? 'video' : 'text'),
       'isRead': false,
-      'readBy': [senderId], // Init avec sender
+      // createdAt est géré par la DB
     };
 
-    // Ajoute message
-    await messageRef.set(messageData);
+    await _supabase.from('messages').insert(messageData);
 
-    // Update lastMessageRef dans convos des deux users
-    final batch = _firestore.batch();
+    // 2. Mettre à jour la conversation (dernier message)
+    await _supabase.from('conversations').update({
+      'lastMessage': text,
+      'lastMessageTime': DateTime.now().toIso8601String(),
+    }).eq('id', conversationId);
+
+    // 3. Envoyer notification (Optionnel, logique identique)
     final otherUserId =
         await _getOtherUserInConversation(conversationId, senderId);
-    if (otherUserId != null) {
-      // Pour sender
-      final senderConvRef = _getConversationsRef(senderId).doc(conversationId);
-      batch.update(senderConvRef, {
-        'lastMessageRef': messageRef,
-        'unreadCount': 0, // Sender a pas unread
-      });
-
-      // Pour receiver : inc unread si pas lu
-      final receiverConvRef =
-          _getConversationsRef(otherUserId).doc(conversationId);
-      batch.update(receiverConvRef, {
-        'lastMessageRef': messageRef,
-        'unreadCount': FieldValue.increment(1),
-      });
-    }
-
-    await batch.commit();
-
-    // Envoyer notification
     if (otherUserId != null) {
       _sendNotificationToUser(senderId, otherUserId, text, conversationId);
     }
   }
 
-  /// Récupère le token FCM de l'utilisateur destinataire depuis Supabase et envoie la notification
-  Future<void> _sendNotificationToUser(String senderId, String receiverId, String messageText, String conversationId) async {
+  /// Récupère le token FCM et envoie la notif
+  Future<void> _sendNotificationToUser(String senderId, String receiverId,
+      String messageText, String conversationId) async {
     try {
-      // 1. Récupérer le token FCM du destinataire
       final response = await _supabase
           .from('users')
           .select('fcmToken')
           .eq('uid', receiverId)
           .maybeSingle();
-      
-      if (response == null || response['fcmToken'] == null) {
-        debugPrint("Aucun token FCM trouvé pour l'utilisateur $receiverId");
-        return;
-      }
+
+      if (response == null || response['fcmToken'] == null) return;
 
       final fcmToken = response['fcmToken'] as String;
 
-      // 2. Récupérer le nom de l'expéditeur
-      // On peut essayer via Supabase d'abord (plus fiable si les profils sont là-bas)
-      String senderName = "Nouvelle message";
+      // Nom expéditeur
+      String senderName = "Nouveau message";
       try {
         final senderProfile = await _supabase
             .from('users')
             .select('firstName, lastName')
             .eq('uid', senderId)
             .maybeSingle();
-            
         if (senderProfile != null) {
-           senderName = "${senderProfile['firstName']} ${senderProfile['lastName']}";
-        } else {
-           // Fallback Firestore
-           senderName = await _getUserName(senderId);
+          senderName =
+              "${senderProfile['firstName']} ${senderProfile['lastName']}";
         }
-      } catch (_) {
-        senderName = await _getUserName(senderId);
-      }
+      } catch (_) {}
 
-      // 3. Envoyer la notification
       await NotificationService().sendPushNotification(
         fcmToken: fcmToken,
         title: senderName,
@@ -176,168 +141,181 @@ class MessagesService {
           'senderId': senderId,
         },
       );
-
     } catch (e) {
-      debugPrint("Erreur lors de l'envoi de la notification: $e");
+      debugPrint("Erreur notification: $e");
     }
   }
 
-  /// Récupère ou crée une conversation pour une propriété donnée
-  /// Vérifie d'abord si une conversation existe déjà entre les deux utilisateurs pour cette propriété
-  Future<String> getOrCreateConversation(String otherUserId, String propertyId) async {
-     final currentUserId = _auth.currentUser!.uid;
-     
-     // 1. Vérifier si une conversation existe déjà
-     // Ceci est une approche simplifiée. Idéalement, il faudrait une requête composée ou une structure de données plus adaptée.
-     // On va parcourir les conversations de l'utilisateur courant.
-     final conversationsSnap = await _getConversationsRef(currentUserId).get();
-     
-     for (var doc in conversationsSnap.docs) {
-       final data = doc.data();
-       if (data['otherUserId'] == otherUserId) {
-         // On vérifie si c'est pour la même propriété
-         final convId = doc.id;
-         final convDoc = await _firestore.collection('conversations').doc(convId).get();
-         if (convDoc.exists && convDoc.data()?['propertyId'] == propertyId) {
-           return convId;
-         }
-       }
-     }
-     
-     // 2. Si aucune conversation n'existe, en créer une nouvelle
-     return await createConversation(otherUserId, propertyId);
+  /// Récupère ou crée une conversation
+  Future<String> getOrCreateConversation(String otherUserId, String propertyId,
+      {String? currentUserId}) async {
+    final uid = currentUserId ?? _getCurrentUserId();
+    if (uid == null) throw Exception("User not logged in");
+
+    // 1. Chercher une conversation existante avec ces participants
+    // Note: SQL array contains. Sur Supabase Dart, on utilise .contains('participants', [val])
+    // Mais pour checker les DEUX, on doit filtrer.
+    // Une approche simple: select id from conversations where participants @> {uid, otherUserId}
+
+    final existing = await _supabase
+        .from('conversations')
+        .select('id, propertyId')
+        .contains('participants', [uid, otherUserId]);
+
+    // Filtrer par propertyId si nécessaire (optionnel selon logique métier, ici on suppose une conv par propriété ou unique par paire user?)
+    // Si on veut une conversation UNIQUE par paire user/owner pour une propriété donnée:
+    if (existing.isNotEmpty) {
+      // On cherche celle qui match propertyId
+      try {
+        final match = existing.firstWhere((e) => e['propertyId'] == propertyId);
+        return match['id'] as String;
+      } catch (_) {
+        // Pas de match exact sur propertyId, on crée ou on retourne une générique?
+        // On crée une nouvelle si propertyId diffère.
+      }
+    }
+
+    return await createConversation(otherUserId, propertyId,
+        currentUserId: uid);
   }
 
-  /// Crée une nouvelle conversation (ex. quand contact via annonce)
-  Future<String> createConversation(
-      String otherUserId, String propertyId) async {
-    final currentUserId = _auth.currentUser!.uid;
-    final conversationId = _firestore.collection('conversations').doc().id;
+  /// Crée une nouvelle conversation
+  Future<String> createConversation(String otherUserId, String propertyId,
+      {String? currentUserId}) async {
+    final uid = currentUserId ?? _getCurrentUserId();
+    if (uid == null) throw Exception("User not logged in");
 
-    // Setup convo doc
-    await _firestore.collection('conversations').doc(conversationId).set({
-      'id': conversationId,
-      'participants': [currentUserId, otherUserId],
-      'propertyId': propertyId, // Lien à l'annonce
-      'createdAt': FieldValue.serverTimestamp(),
-    });
+    final res = await _supabase
+        .from('conversations')
+        .insert({
+          'propertyId': propertyId,
+          'participants': [uid, otherUserId],
+          'lastMessage': '',
+          'lastMessageTime': DateTime.now().toIso8601String(),
+        })
+        .select()
+        .single();
 
-    // Ajoute refs dans users' convos
-    final batch = _firestore.batch();
-    final currentConvRef =
-        _getConversationsRef(currentUserId).doc(conversationId);
-    final otherConvRef = _getConversationsRef(otherUserId).doc(conversationId);
-
-    final currentName = await _getUserName(currentUserId);
-    final otherName = await _getUserName(otherUserId);
-
-    batch.set(currentConvRef, {
-      'otherUserId': otherUserId,
-      'otherUserName': otherName,
-      'unreadCount': 0,
-      'lastMessageRef': null,
-    });
-    batch.set(otherConvRef, {
-      'otherUserId': currentUserId,
-      'otherUserName': currentName,
-      'unreadCount': 0,
-      'lastMessageRef': null,
-    });
-
-    await batch.commit();
-    return conversationId;
+    return res['id'] as String;
   }
 
-  /// Helper: Récupère nom user via Firestore (assume collection 'users' avec 'name')
+  /// Récupère nom user
   Future<String> _getUserName(String userId) async {
     try {
-      final userDoc = await _firestore.collection('users').doc(userId).get();
-      return userDoc.data()?['name'] ?? 'Utilisateur inconnu';
+      final response = await _supabase
+          .from('users')
+          .select('firstName, lastName')
+          .eq('uid', userId)
+          .maybeSingle();
+      if (response != null) {
+        return "${response['firstName']} ${response['lastName']}";
+      }
+      return 'Utilisateur';
     } catch (e) {
-      return 'Utilisateur inconnu';
+      return 'Utilisateur';
     }
   }
 
-  /// Helper: Trouve l'autre user dans convo
+  /// Trouve l'autre user dans convo
   Future<String?> _getOtherUserInConversation(
       String conversationId, String currentUserId) async {
-    final convoDoc =
-        await _firestore.collection('conversations').doc(conversationId).get();
-    final participants =
-        convoDoc.data()?['participants'] as List<dynamic>? ?? [];
-    return participants.firstWhere((id) => id != currentUserId,
-        orElse: () => null) as String?;
+    try {
+      final response = await _supabase
+          .from('conversations')
+          .select('participants')
+          .eq('id', conversationId)
+          .single();
+      final participants = List<String>.from(response['participants'] ?? []);
+      return participants.firstWhere((id) => id != currentUserId,
+          orElse: () => '');
+    } catch (_) {
+      return null;
+    }
   }
 
   /// Stream des messages d'une conversation
   Stream<List<Message>> getMessages(String conversationId) {
-    return _getMessagesRef(conversationId)
-        .orderBy('timestamp', descending: true)
-        .snapshots()
-        .map((snapshot) =>
-            snapshot.docs.map((doc) => Message.fromJson(doc.data())).toList());
+    return _supabase
+        .from('messages')
+        .stream(primaryKey: ['id'])
+        .eq('conversationId', conversationId)
+        .order('createdAt', ascending: false)
+        .map((data) => data
+            .map((json) => Message(
+                  id: json['id'],
+                  senderId: json['senderId'],
+                  text: json['content'] ?? '',
+                  timestamp: json['createdAt'] != null
+                      ? DateTime.parse(json['createdAt'])
+                      : DateTime.now(),
+                  imageUrl:
+                      json['mediaType'] == 'image' ? json['mediaUrl'] : null,
+                  videoUrl:
+                      json['mediaType'] == 'video' ? json['mediaUrl'] : null,
+                  isRead: json['isRead'] ?? false,
+                  readBy: json['readBy'] ?? [],
+                ))
+            .toList());
   }
 
-  /// Upload image pour message avec progress (retourne URL)
+  /// Upload image (Supabase Storage)
   Future<String?> uploadMessageImage(
     File imageFile,
     String conversationId,
     void Function(double) onProgress,
   ) async {
     try {
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final ref =
-          _storage.ref().child('messages/$conversationId/$timestamp.jpg');
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}.jpg';
+      final path = 'chat/$conversationId/$fileName';
 
-      final uploadTask = ref.putFile(imageFile);
+      // Supabase storage upload ne fournit pas de stream de progression natif simple dans le SDK actuel
+      // On fait l'upload direct.
+      onProgress(0.5); // Fake progress
 
-      // Listen progress
-      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-        final progress = snapshot.bytesTransferred / snapshot.totalBytes;
-        onProgress(progress);
-      });
+      await _supabase.storage.from('images').upload(
+            path,
+            imageFile,
+            fileOptions: const FileOptions(cacheControl: '3600', upsert: false),
+          );
 
-      final snapshot = await uploadTask;
-      return await snapshot.ref.getDownloadURL();
+      onProgress(1.0);
+
+      final url = _supabase.storage.from('images').getPublicUrl(path);
+      return url;
     } catch (e) {
-      debugPrint('Erreur upload message image: $e');
+      debugPrint('Erreur upload: $e');
       return null;
     }
   }
 
-  /// Upload vidéo pour message avec progress (retourne URL)
+  /// Upload vidéo
   Future<String?> uploadMessageVideo(
     File videoFile,
     String conversationId,
     void Function(double) onProgress,
   ) async {
     try {
-      final timestamp = DateTime.now().millisecondsSinceEpoch;
-      final ref = _storage
-          .ref()
-          .child('messages/$conversationId/videos/$timestamp.mp4');
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}.mp4';
+      final path = 'chat/$conversationId/videos/$fileName';
 
-      final uploadTask = ref.putFile(videoFile);
+      onProgress(0.5);
 
-      // Listen progress
-      uploadTask.snapshotEvents.listen((TaskSnapshot snapshot) {
-        final progress = snapshot.bytesTransferred / snapshot.totalBytes;
-        onProgress(progress);
-      });
+      await _supabase.storage.from('images').upload(
+            path,
+            videoFile,
+            fileOptions: const FileOptions(contentType: 'video/mp4'),
+          );
 
-      final snapshot = await uploadTask;
-      return await snapshot.ref.getDownloadURL();
+      onProgress(1.0);
+      return _supabase.storage.from('images').getPublicUrl(path);
     } catch (e) {
-      debugPrint('Erreur upload message video: $e');
+      debugPrint('Erreur upload video: $e');
       return null;
     }
   }
 
-  /// Marque une conversation comme lue pour un user
-  /// Marque le contact comme payé pour une conversation
   Future<void> markContactPaid(String conversationId, String userId) async {
-    await _getConversationsRef(userId)
-        .doc(conversationId)
-        .update({'is_contact_paid': true});
+    // TODO: Implémenter logique paiement contact si nécessaire (colonne is_contact_paid dans conversations?)
+    // Pour l'instant vide ou ajout colonne SQL nécessaire.
   }
 }

@@ -36,7 +36,8 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
       // Créer un lien partageable (deep link ou lien web)
       final propertyLink = 'https://allobailleur.app/property/${property.id}';
 
-      final shareText = '''
+      final shareText =
+          '''
 🏠 ${property.title}
 
 📍 ${property.city}, ${property.district ?? property.country}
@@ -50,7 +51,7 @@ ${property.description}
 Découvrez cette propriété sur Allô Bailleur !
 #AlloBailleur #Location #${property.city}
       '''
-          .trim();
+              .trim();
 
       await Share.share(
         shareText,
@@ -59,16 +60,20 @@ Découvrez cette propriété sur Allô Bailleur !
     } catch (e) {
       debugPrint('Erreur lors du partage: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Erreur lors du partage')),
-        );
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(const SnackBar(content: Text('Erreur lors du partage')));
       }
     }
   }
 
   // Widget pour les statistiques
   Widget _buildStatCard(
-      String title, String value, IconData icon, Color color) {
+    String title,
+    String value,
+    IconData icon,
+    Color color,
+  ) {
     return Card(
       elevation: 4,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -120,10 +125,7 @@ Découvrez cette propriété sur Allô Bailleur !
             const SizedBox(height: 8),
             Text(
               title,
-              style: const TextStyle(
-                fontSize: 14,
-                fontWeight: FontWeight.w500,
-              ),
+              style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
               textAlign: TextAlign.center,
             ),
           ],
@@ -210,8 +212,11 @@ Découvrez cette propriété sur Allô Bailleur !
                         const SizedBox(height: 4),
                         Row(
                           children: [
-                            Icon(Icons.location_on,
-                                size: 16, color: Colors.grey[600]),
+                            Icon(
+                              Icons.location_on,
+                              size: 16,
+                              color: Colors.grey[600],
+                            ),
                             const SizedBox(width: 4),
                             Expanded(
                               child: Text(
@@ -244,12 +249,15 @@ Découvrez cette propriété sur Allô Bailleur !
                     children: [
                       Container(
                         padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 4),
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
                         decoration: BoxDecoration(
                           color: statusColor.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(12),
-                          border:
-                              Border.all(color: statusColor.withOpacity(0.3)),
+                          border: Border.all(
+                            color: statusColor.withOpacity(0.3),
+                          ),
                         ),
                         child: Row(
                           children: [
@@ -273,44 +281,60 @@ Découvrez cette propriété sur Allô Bailleur !
                           if (value == 'mark_rented') {
                             final ok = await provider.completeRental(p);
                             if (mounted) {
-                              messenger.showSnackBar(SnackBar(
+                              messenger.showSnackBar(
+                                SnackBar(
                                   content: Text(
-                                      ok ? 'Annonce marquée louée' : "Échec")));
+                                    ok ? 'Annonce marquée louée' : "Échec",
+                                  ),
+                                ),
+                              );
                               await _load(); // Recharger les données
                             }
                           } else if (value == 'restore') {
                             final ok = await provider.restoreProperty(p);
                             if (mounted) {
-                              messenger.showSnackBar(SnackBar(
-                                  content: Text(ok
-                                      ? 'Annonce remise en ligne'
-                                      : "Échec")));
+                              messenger.showSnackBar(
+                                SnackBar(
+                                  content: Text(
+                                    ok ? 'Annonce remise en ligne' : "Échec",
+                                  ),
+                                ),
+                              );
                               await _load(); // Recharger les données
                             }
                           } else if (value == 'delete') {
                             final res = await provider.deleteProperty(p.id);
-                            if (res['success'] == true) {
+                            if (res) {
                               await _load(); // Recharger les données
                               if (mounted) {
-                                messenger.showSnackBar(const SnackBar(
-                                    content: Text('Annonce supprimée')));
+                                messenger.showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Annonce supprimée'),
+                                  ),
+                                );
                               }
                             } else {
                               if (mounted) {
-                                messenger.showSnackBar(SnackBar(
+                                messenger.showSnackBar(
+                                  const SnackBar(
                                     content: Text(
-                                        'Erreur: ${res['message'] ?? ''}')));
+                                      'Erreur lors de la suppression',
+                                    ),
+                                  ),
+                                );
                               }
                             }
                           } else if (value == 'edit') {
                             if (mounted) {
-                              Navigator.of(context)
-                                  .pushNamed('/editProperty', arguments: p);
+                              Navigator.of(
+                                context,
+                              ).pushNamed('/editProperty', arguments: p);
                             }
                           } else if (value == 'view_details') {
                             if (mounted) {
-                              Navigator.of(context)
-                                  .pushNamed('/propertyDetails', arguments: p);
+                              Navigator.of(
+                                context,
+                              ).pushNamed('/propertyDetails', arguments: p);
                             }
                           } else if (value == 'share') {
                             if (mounted) {
@@ -320,25 +344,35 @@ Découvrez cette propriété sur Allô Bailleur !
                         },
                         itemBuilder: (context) => [
                           const PopupMenuItem(
-                              value: 'view_details',
-                              child: Text('Voir détails')),
+                            value: 'view_details',
+                            child: Text('Voir détails'),
+                          ),
                           const PopupMenuItem(
-                              value: 'share', child: Text('Partager')),
+                            value: 'share',
+                            child: Text('Partager'),
+                          ),
                           if (p.status != 'rented')
                             const PopupMenuItem(
-                                value: 'mark_rented',
-                                child: Text('Marquer loué')),
+                              value: 'mark_rented',
+                              child: Text('Marquer loué'),
+                            ),
                           if (p.status == 'rented')
                             const PopupMenuItem(
-                                value: 'restore',
-                                child: Text('Remettre en ligne')),
+                              value: 'restore',
+                              child: Text('Remettre en ligne'),
+                            ),
                           const PopupMenuItem(
-                              value: 'edit', child: Text('Éditer')),
+                            value: 'edit',
+                            child: Text('Éditer'),
+                          ),
                           const PopupMenuDivider(),
                           const PopupMenuItem(
-                              value: 'delete',
-                              child: Text('Supprimer',
-                                  style: TextStyle(color: Colors.red))),
+                            value: 'delete',
+                            child: Text(
+                              'Supprimer',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          ),
                         ],
                       ),
                     ],
@@ -355,14 +389,13 @@ Découvrez cette propriété sur Allô Bailleur !
                   _buildInfoChip(Icons.bathtub, '${p.bathrooms} sdb'),
                   const SizedBox(width: 8),
                   _buildInfoChip(
-                      Icons.square_foot, '${p.surface?.toInt() ?? 0} m²'),
+                    Icons.square_foot,
+                    '${p.surface?.toInt() ?? 0} m²',
+                  ),
                   const Spacer(),
                   Text(
                     'Créée le ${_formatDate(p.createdAt)}',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.grey[500],
-                    ),
+                    style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                   ),
                 ],
               ),
@@ -416,7 +449,7 @@ Découvrez cette propriété sur Allô Bailleur !
               setState(() => _loading = true);
               await _load();
             },
-          )
+          ),
         ],
       ),
       floatingActionButton: FloatingActionButton.extended(
@@ -434,10 +467,12 @@ Découvrez cette propriété sur Allô Bailleur !
           }
 
           final properties = provider.userProperties ?? [];
-          final activeProperties =
-              properties.where((p) => p.status != 'rented').length;
-          final rentedProperties =
-              properties.where((p) => p.status == 'rented').length;
+          final activeProperties = properties
+              .where((p) => p.status != 'rented')
+              .length;
+          final rentedProperties = properties
+              .where((p) => p.status == 'rented')
+              .length;
           final totalRevenue = properties
               .where((p) => p.status == 'rented')
               .fold<double>(0, (sum, p) => sum + p.price);
@@ -531,8 +566,9 @@ Découvrez cette propriété sur Allô Bailleur !
                               child: _buildQuickAction(
                                 'Nouvelle annonce',
                                 Icons.add_circle,
-                                () => Navigator.of(context)
-                                    .pushNamed(CreatePropertyPage.routeName),
+                                () => Navigator.of(
+                                  context,
+                                ).pushNamed(CreatePropertyPage.routeName),
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -540,8 +576,9 @@ Découvrez cette propriété sur Allô Bailleur !
                               child: _buildQuickAction(
                                 'Voir réservations',
                                 Icons.calendar_today,
-                                () => Navigator.of(context)
-                                    .pushNamed('/bookingsList'),
+                                () => Navigator.of(
+                                  context,
+                                ).pushNamed('/bookingsList'),
                               ),
                             ),
                           ],
@@ -553,8 +590,9 @@ Découvrez cette propriété sur Allô Bailleur !
                               child: _buildQuickAction(
                                 'Messages',
                                 Icons.message,
-                                () => Navigator.of(context)
-                                    .pushNamed('/inboxPageRoute'),
+                                () => Navigator.of(
+                                  context,
+                                ).pushNamed('/inboxPageRoute'),
                               ),
                             ),
                             const SizedBox(width: 12),
@@ -562,8 +600,9 @@ Découvrez cette propriété sur Allô Bailleur !
                               child: _buildQuickAction(
                                 'Voir profil',
                                 Icons.person,
-                                () => Navigator.of(context)
-                                    .pushNamed('/viewProfilePageRoute'),
+                                () => Navigator.of(
+                                  context,
+                                ).pushNamed('/viewProfilePageRoute'),
                               ),
                             ),
                           ],
@@ -588,8 +627,9 @@ Découvrez cette propriété sur Allô Bailleur !
                         ),
                         const Spacer(),
                         TextButton.icon(
-                          onPressed: () => Navigator.of(context)
-                              .pushNamed(CreatePropertyPage.routeName),
+                          onPressed: () => Navigator.of(
+                            context,
+                          ).pushNamed(CreatePropertyPage.routeName),
                           icon: const Icon(Icons.add),
                           label: const Text('Ajouter'),
                         ),
@@ -620,8 +660,9 @@ Découvrez cette propriété sur Allô Bailleur !
                           ),
                           const SizedBox(height: 16),
                           ElevatedButton.icon(
-                            onPressed: () => Navigator.of(context)
-                                .pushNamed(CreatePropertyPage.routeName),
+                            onPressed: () => Navigator.of(
+                              context,
+                            ).pushNamed(CreatePropertyPage.routeName),
                             icon: const Icon(Icons.add),
                             label: const Text('Créer ma première annonce'),
                           ),

@@ -1,23 +1,15 @@
-import 'dart:convert';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import 'dart:convert';
 import 'package:http/http.dart' as http;
-import 'package:geolocator/geolocator.dart';
 
 class MapPickerResult {
   final double lat;
   final double lng;
-  final String? city;
-  final String? displayName;
+  final String? address;
 
-  MapPickerResult({
-    required this.lat,
-    required this.lng,
-    this.city,
-    this.displayName,
-  });
+  MapPickerResult({required this.lat, required this.lng, this.address});
 }
 
 class MapPickerPage extends StatefulWidget {
@@ -26,8 +18,8 @@ class MapPickerPage extends StatefulWidget {
 
   const MapPickerPage({
     super.key,
-    this.initialLat = 3.8667,
-    this.initialLng = 11.5167,
+    this.initialLat = 3.8480,
+    this.initialLng = 11.5021,
   });
 
   @override
@@ -35,229 +27,151 @@ class MapPickerPage extends StatefulWidget {
 }
 
 class _MapPickerPageState extends State<MapPickerPage> {
-  late final MapController _mapController;
-  LatLng? _selected;
-  bool _isReverseLoading = false;
-  String? _city;
-  String? _displayName;
-  bool _isGettingPosition = false;
+  late LatLng _selectedPosition;
+  final MapController _mapController = MapController();
+  final TextEditingController _searchController = TextEditingController();
+  List<dynamic> _searchResults = [];
+  bool _isSearching = false;
 
   @override
   void initState() {
     super.initState();
-    _mapController = MapController();
+    _selectedPosition = LatLng(widget.initialLat, widget.initialLng);
   }
 
-  Future<void> _reverseGeocode(LatLng pos) async {
-    setState(() {
-      _isReverseLoading = true;
-      _city = null;
-      _displayName = null;
-    });
+  Future<void> _searchPlace(String query) async {
+    if (query.isEmpty) return;
+    setState(() => _isSearching = true);
+
+    final url = Uri.parse(
+        'https://nominatim.openstreetmap.org/search?q=$query&format=json&limit=5&countrycodes=cm');
+
     try {
-      final url = Uri.parse(
-          'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${pos.latitude}&lon=${pos.longitude}');
-      final res = await http.get(url,
-          headers: {'User-Agent': 'AlloBailleur/1.0 (+https://example.com)'});
-      if (res.statusCode == 200) {
-        final body = json.decode(res.body) as Map<String, dynamic>;
-        final address = body['address'] as Map<String, dynamic>?;
-        String? city;
-        if (address != null) {
-          city = address['city'] as String? ??
-              address['town'] as String? ??
-              address['village'] as String? ??
-              address['county'] as String?;
-        }
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
         setState(() {
-          _city = city;
-          _displayName = body['display_name'] as String?;
+          _searchResults = json.decode(response.body);
         });
       }
-    } catch (_) {
-      // ignore errors, reverse geocoding is best-effort
+    } catch (e) {
+      debugPrint("Erreur recherche: $e");
     } finally {
-      if (mounted) setState(() => _isReverseLoading = false);
+      setState(() => _isSearching = false);
     }
   }
 
-  void _onTapTap(TapPosition tapPosition, LatLng latlng) async {
+  void _selectSearchResult(dynamic result) {
+    final lat = double.parse(result['lat']);
+    final lon = double.parse(result['lon']);
+    final latlng = LatLng(lat, lon);
+
     setState(() {
-      _selected = latlng;
+      _selectedPosition = latlng;
+      _searchResults = [];
+      _searchController.clear();
     });
-    await _reverseGeocode(latlng);
-  }
-
-  Future<Position?> _determinePosition() async {
-    bool serviceEnabled;
-    LocationPermission permission;
-
-    serviceEnabled = await Geolocator.isLocationServiceEnabled();
-    if (!serviceEnabled) {
-      return null;
-    }
-
-    permission = await Geolocator.checkPermission();
-    if (permission == LocationPermission.denied) {
-      permission = await Geolocator.requestPermission();
-      if (permission == LocationPermission.denied) {
-        return null;
-      }
-    }
-
-    if (permission == LocationPermission.deniedForever) {
-      return null;
-    }
-
-    return await Geolocator.getCurrentPosition(
-        desiredAccuracy: LocationAccuracy.high);
-  }
-
-  Future<void> _useMyLocation() async {
-    setState(() => _isGettingPosition = true);
-    try {
-      final pos = await _determinePosition();
-      if (pos == null) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-              content: Text(
-                  'Impossible d\'obtenir la position. Activer la localisation.')));
-        }
-        return;
-      }
-      final latlng = LatLng(pos.latitude, pos.longitude);
-      setState(() {
-        _selected = latlng;
-      });
-      _mapController.move(latlng, 15.0);
-      await _reverseGeocode(latlng);
-    } finally {
-      if (mounted) setState(() => _isGettingPosition = false);
-    }
+    _mapController.move(latlng, 15.0);
   }
 
   @override
   Widget build(BuildContext context) {
-    final initial = LatLng(widget.initialLat, widget.initialLng);
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Choisir l\'emplacement'),
+        title: const Text("Choisir l'emplacement"),
         actions: [
           IconButton(
-            tooltip: 'Ma position',
-            onPressed: _isGettingPosition ? null : _useMyLocation,
-            icon: _isGettingPosition
-                ? const SizedBox(
-                    width: 20,
-                    height: 20,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.my_location),
-          ),
-          TextButton(
-            onPressed: _selected == null
-                ? null
-                : () {
-                    final res = MapPickerResult(
-                      lat: _selected!.latitude,
-                      lng: _selected!.longitude,
-                      city: _city,
-                      displayName: _displayName,
-                    );
-                    Navigator.of(context).pop(res);
-                  },
-            child:
-                const Text('Confirmer', style: TextStyle(color: Colors.white)),
+            icon: const Icon(Icons.check),
+            onPressed: () {
+              Navigator.pop(
+                context,
+                MapPickerResult(
+                  lat: _selectedPosition.latitude,
+                  lng: _selectedPosition.longitude,
+                ),
+              );
+            },
           )
         ],
       ),
-      body: Column(
+      body: Stack(
         children: [
-          Expanded(
-            child: FlutterMap(
-              mapController: _mapController,
-              options: MapOptions(
-                center: _selected ?? initial,
-                zoom: 13.0,
-                onTap: _onTapTap,
+          FlutterMap(
+            mapController: _mapController,
+            options: MapOptions(
+              initialCenter: _selectedPosition,
+              initialZoom: 15.0,
+              onTap: (tapPosition, point) {
+                setState(() {
+                  _selectedPosition = point;
+                });
+              },
+            ),
+            children: [
+              TileLayer(
+                urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+                userAgentPackageName: 'com.example.app',
               ),
+              MarkerLayer(
+                markers: [
+                  Marker(
+                    point: _selectedPosition,
+                    width: 50,
+                    height: 50,
+                    child: const Icon(
+                      Icons.location_on,
+                      color: Colors.red,
+                      size: 50,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+
+          // Barre de recherche
+          Positioned(
+            top: 10,
+            left: 10,
+            right: 10,
+            child: Column(
               children: [
-                TileLayer(
-                  urlTemplate:
-                      'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-                  subdomains: const ['a', 'b', 'c'],
+                Card(
+                  elevation: 4,
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: InputDecoration(
+                      hintText: "Rechercher un lieu (ex: Bastos, Yaoundé)",
+                      prefixIcon: const Icon(Icons.search),
+                      suffixIcon: IconButton(
+                        icon: const Icon(Icons.arrow_forward),
+                        onPressed: () => _searchPlace(_searchController.text),
+                      ),
+                      contentPadding: const EdgeInsets.symmetric(vertical: 15),
+                      border: InputBorder.none,
+                    ),
+                    onSubmitted: _searchPlace,
+                  ),
                 ),
-                if (_selected != null)
-                  MarkerLayer(
-                    markers: [
-                      Marker(
-                        point: _selected!,
-                        width: 48,
-                        height: 48,
-                        builder: (ctx) => const Icon(
-                          Icons.location_on,
-                          color: Colors.red,
-                          size: 40,
-                        ),
-                      )
-                    ],
+                if (_isSearching) const LinearProgressIndicator(),
+                if (_searchResults.isNotEmpty)
+                  Container(
+                    color: Colors.white,
+                    constraints: const BoxConstraints(maxHeight: 200),
+                    child: ListView.builder(
+                      shrinkWrap: true,
+                      itemCount: _searchResults.length,
+                      itemBuilder: (context, index) {
+                        final place = _searchResults[index];
+                        return ListTile(
+                          title: Text(place['display_name']),
+                          onTap: () => _selectSearchResult(place),
+                        );
+                      },
+                    ),
                   ),
               ],
             ),
           ),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Theme.of(context).scaffoldBackgroundColor,
-              boxShadow: [
-                BoxShadow(
-                  color: Color.fromRGBO(0, 0, 0, 0.05),
-                  blurRadius: 6,
-                )
-              ],
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _selected == null
-                            ? 'Aucun emplacement sélectionné'
-                            : 'Lat: ${_selected!.latitude.toStringAsFixed(5)}, Lng: ${_selected!.longitude.toStringAsFixed(5)}',
-                        style: const TextStyle(fontWeight: FontWeight.bold),
-                      ),
-                      const SizedBox(height: 6),
-                      if (_isReverseLoading)
-                        const Text('Recherche de l\'adresse...')
-                      else if (_city != null)
-                        Text(_city!)
-                      else if (_displayName != null)
-                        Text(_displayName!)
-                      else
-                        const Text(
-                            'Appuyez sur la carte pour placer un marqueur'),
-                    ],
-                  ),
-                ),
-                ElevatedButton(
-                  onPressed: _selected == null
-                      ? null
-                      : () {
-                          final res = MapPickerResult(
-                            lat: _selected!.latitude,
-                            lng: _selected!.longitude,
-                            city: _city,
-                            displayName: _displayName,
-                          );
-                          Navigator.of(context).pop(res);
-                        },
-                  child: const Text('Utiliser'),
-                )
-              ],
-            ),
-          )
         ],
       ),
     );

@@ -6,6 +6,7 @@ class Review {
   final String? comment;
   final DateTime createdAt;
   final String? userName; // Optional, for display
+  final List<String> photos; // Photos ajoutées à l'avis
 
   Review({
     required this.id,
@@ -15,6 +16,7 @@ class Review {
     this.comment,
     required this.createdAt,
     this.userName,
+    this.photos = const [],
   });
 
   factory Review.fromJson(Map<String, dynamic> json) {
@@ -26,6 +28,7 @@ class Review {
       comment: json['comment'],
       createdAt: DateTime.parse(json['createdAt']),
       userName: json['userName'],
+      photos: List<String>.from(json['photos'] ?? []),
     );
   }
 
@@ -38,6 +41,7 @@ class Review {
       'comment': comment,
       'createdAt': createdAt.toIso8601String(),
       'userName': userName,
+      'photos': photos,
     };
   }
 }

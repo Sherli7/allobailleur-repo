@@ -73,8 +73,9 @@ class NaturalSearchService {
     }
 
     // 7. Extraction du Type de bien
-    if (normalizedQuery.contains('studio')) filters['type'] = 'studio';
-    else if (normalizedQuery.contains('appartement')) filters['type'] = 'apartment';
+    if (normalizedQuery.contains('studio')) {
+      filters['type'] = 'studio';
+    } else if (normalizedQuery.contains('appartement')) filters['type'] = 'apartment';
     else if (normalizedQuery.contains('maison') || normalizedQuery.contains('villa')) filters['type'] = 'house';
     else if (normalizedQuery.contains('chambre')) filters['type'] = 'room';
     else if (normalizedQuery.contains('bureau')) filters['type'] = 'office';

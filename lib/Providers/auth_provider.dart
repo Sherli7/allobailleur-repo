@@ -1,24 +1,11 @@
 import 'package:flutter/foundation.dart';
-import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart' hide User;
 import 'package:rent_house/Models/Users.dart' as user_model;
-import 'package:rent_house/Services/AuthService.dart'; // Keeping for user data loading logic if needed, or refactoring
-import 'dart:typed_data';
 import 'package:cross_file/cross_file.dart';
 
 class AuthProvider extends ChangeNotifier {
   // We are now prioritizing Supabase Auth.
-  // We might still use AuthService for legacy helpers, but core Auth is here.
   final _supabase = Supabase.instance.client;
-
-  // Keep AuthService for potential profile fetching if it reads from Firestore?
-  // If the user wants "Only Supabase Auth", we should ideally fetch profile from Supabase too.
-  // BUT, migrating data is huge.
-  // Assumption: We Authenticate via Supabase, but Profile Data is still in Firestore/Supabase?
-  // The user said "Gère uniquement l'authentification via supabase".
-  // So we use Supabase Auth.
-
-  final AuthService _authService = AuthService();
 
   user_model.User? _user;
   bool _isLoading = false;
@@ -32,11 +19,8 @@ class AuthProvider extends ChangeNotifier {
   // Provide Supabase User ID as the primary ID
   String? get currentUserId => _supabase.auth.currentUser?.id;
 
-  // Deprecated getter for Firebase User (legacy support)
-  // We return null as we are moving away, OR we map Supabase user?
-  // Better to break it properly or provide a mock.
-  // Warning: This breaks UI depending on firebaseUser.
-  // But we must cut the cord.
+  /// Ensure `currentUserId` is not null before using it in queries
+  String get safeCurrentUserId => currentUserId ?? '';
 
   AuthProvider() {
     // Listen to Supabase auth state
@@ -47,19 +31,12 @@ class AuthProvider extends ChangeNotifier {
         notifyListeners();
         return;
       }
-      // User is logged in via Supabase
-      // Fetch profile data.
-      // IF profile data is in Firestore, we need to fetch it using the Supabase User ID?
-      // Wait, if we use Supabase Auth, the User ID is NEW (different from Firebase UID).
-      // So Firestore lookups by ID will FAIL unless we migrated users.
-      // Since the user said "Only Supabase Auth", we assume they are starting fresh or migrated.
-      // We will try to fetch profile from Supabase 'users' table (if it exists) or just use Metadata.
 
       try {
-        // Attempt to load user profile from Firestore using Supabase ID? (Unlikely to match)
-        // Or construct a basic User object from metadata
+        // Construct a basic User object from metadata
         _user = user_model.User(
           uid: session.user.id,
+          id: session.user.id, // Add the required 'id' argument
           email: session.user.email ?? '',
           firstName:
               session.user.userMetadata?['full_name']?.split(' ').first ?? '',
@@ -71,8 +48,7 @@ class AuthProvider extends ChangeNotifier {
           city: '',
           country: '',
           bio: '',
-          createdAt:
-              DateTime.now(), // Placeholder, should fetch from DB if available
+          createdAt: DateTime.now(),
           hasActiveSubscription: false,
         );
       } catch (e) {
@@ -88,23 +64,21 @@ class AuthProvider extends ChangeNotifier {
     _errorMessage = null;
     notifyListeners();
     try {
-      final response = await _supabase.auth.signInWithPassword(
+      await _supabase.auth.signInWithPassword(
         email: email,
         password: password,
       );
-      _isLoading = false;
-      if (response.user != null) {
-        notifyListeners();
-        return;
-      }
+      // On success, the onAuthStateChange listener will handle user state.
     } on AuthException catch (e) {
       _errorMessage = e.message;
+      throw Exception(_errorMessage); // Rethrow for the UI
     } catch (e) {
       _errorMessage = 'Erreur inattendue: $e';
+      throw Exception(_errorMessage); // Rethrow for the UI
+    } finally {
+      _isLoading = false;
+      notifyListeners();
     }
-    _isLoading = false;
-    notifyListeners();
-    throw Exception(_errorMessage); // Throw to match UI expectation
   }
 
   Future<void> logout() async {
@@ -120,12 +94,9 @@ class AuthProvider extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // Use Supabase OAuth for Google sign in (works on web and mobile)
       final response = await _supabase.auth.signInWithOAuth(
         OAuthProvider.google,
-        redirectTo: kIsWeb
-            ? null
-            : 'com.example.renthouse://login-callback', // Adjust redirect URL for mobile
+        redirectTo: kIsWeb ? null : 'com.example.renthouse://login-callback',
       );
 
       _isLoading = false;
@@ -187,6 +158,57 @@ class AuthProvider extends ChangeNotifier {
     return false;
   }
 
+  /// Fetch user profile from Supabase
+  Future<void> fetchUserProfile() async {
+    final userId = currentUserId;
+    if (userId == null) {
+      return;
+    }
+
+    try {
+      _isLoading = true;
+      notifyListeners();
+
+      final response = await _supabase
+          .from('users')
+          .select()
+          .eq(
+            'id',
+            safeCurrentUserId,
+          ) // Use safeCurrentUserId to avoid null issues
+          .single();
+
+      if (response != null) {
+        _user = user_model.User(
+          uid: response['id'],
+          id: response['id'],
+          email: response['email'],
+          firstName: response['first_name'],
+          lastName: response['last_name'],
+          profilePicture: response['profile_picture'],
+          profileImageUrl: response['profile_picture'] ?? '',
+          role: response['role'],
+          city: response['city'],
+          country: response['country'],
+          bio: response['bio'],
+          createdAt: DateTime.parse(response['created_at']),
+          updatedAt: response['updated_at'] != null
+              ? DateTime.parse(response['updated_at'])
+              : null,
+          isHost: response['is_host'],
+          hasActiveSubscription: response['has_active_subscription'],
+          isVerified: response['is_verified'],
+          kycStatus: response['kyc_status'],
+        );
+      }
+    } catch (e) {
+      _errorMessage = 'Failed to fetch user profile: $e';
+    } finally {
+      _isLoading = false;
+      notifyListeners();
+    }
+  }
+
   // Legacy methods for compatibility
   Future<void> updateUserProfile({
     String? fullName,
@@ -198,7 +220,6 @@ class AuthProvider extends ChangeNotifier {
     String? role,
     bool? isHost,
   }) async {
-    // Prepare updates map
     final updates = <String, dynamic>{};
     if (fullName != null) updates['full_name'] = fullName;
     if (email != null) updates['email'] = email;
@@ -209,18 +230,14 @@ class AuthProvider extends ChangeNotifier {
     if (role != null) updates['role'] = role;
     if (isHost != null) updates['isHost'] = isHost;
 
-    // Update user metadata in Supabase
     try {
       await _supabase.auth.updateUser(
-        UserAttributes(
-          email: email,
-          data: updates,
-        ),
+        UserAttributes(email: email, data: updates),
       );
-      // Update local user
       if (_user != null) {
         _user = user_model.User(
           uid: _user!.uid,
+          id: _user!.uid, // Add the required 'id' argument
           email: email ?? _user!.email,
           firstName: fullName?.split(' ').first ?? _user!.firstName,
           lastName: fullName?.split(' ').last ?? _user!.lastName,
@@ -244,7 +261,6 @@ class AuthProvider extends ChangeNotifier {
 
   Future<bool> updateProfileImage(dynamic pickedFile) async {
     try {
-      // Handle both XFile (mobile/web) and File (desktop)
       late Uint8List fileBytes;
       String fileName;
 
@@ -252,25 +268,23 @@ class AuthProvider extends ChangeNotifier {
         fileBytes = await pickedFile.readAsBytes();
         fileName = pickedFile.name;
       } else {
-        // Assume it's a file path or other
         throw 'Unsupported file type';
       }
 
-      // Upload to Supabase Storage
       final userId = currentUserId;
       if (userId == null) throw 'User not logged in';
 
       final filePath = 'avatars/$userId/$fileName';
-      await _supabase.storage.from('images').uploadBinary(
+      await _supabase.storage
+          .from('images')
+          .uploadBinary(
             filePath,
             fileBytes,
             fileOptions: const FileOptions(upsert: true),
           );
 
-      // Get public URL
       final imageUrl = _supabase.storage.from('images').getPublicUrl(filePath);
 
-      // Update profile
       await updateUserProfile(avatarUrl: imageUrl);
       return true;
     } catch (e) {
@@ -280,7 +294,6 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  // Getter for firebaseUser (legacy, returns null)
   dynamic get firebaseUser => null;
 
   Future<bool> promoteToOwner() async {
@@ -292,7 +305,4 @@ class AuthProvider extends ChangeNotifier {
     await updateUserProfile(isHost: true);
     return true;
   }
-
-  // ... Other methods (updateProfile, etc) would need Supabase implementation ...
-  // For now, we focus on Auth as requested.
 }

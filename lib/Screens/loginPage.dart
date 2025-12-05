@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:rent_house/Constants/svg_assets.dart';
 import 'package:rent_house/Screens/guestHomePage.dart';
 import 'package:rent_house/Screens/signUpPage.dart';
 import 'package:rent_house/Providers/auth_provider.dart' as app_auth;
@@ -154,8 +155,8 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                     child: SizedBox(
                                       height: 100,
                                       width: 100,
-                                      child: SvgPicture.asset(
-                                        'assets/images/logo.svg',
+                                      child: SvgPicture.string(
+                                        appLogoSvg,
                                         fit: BoxFit.contain,
                                       ),
                                     ),
@@ -367,8 +368,13 @@ class _LoginPageState extends State<LoginPage> with TickerProviderStateMixin {
                                       ),
                                       TextButton(
                                         onPressed: () {
-                                          Navigator.pushNamed(
-                                              context, '/register'); // Use route name
+                                          Navigator.push(
+                                            context,
+                                            MaterialPageRoute(
+                                              builder: (context) =>
+                                                  const SignUpPage(),
+                                            ),
+                                          );
                                         },
                                         child: Text(
                                           'S\'inscrire',

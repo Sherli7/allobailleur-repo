@@ -1,19 +1,24 @@
+// lib/Screens/property_details_page.dart
+
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:photo_view/photo_view.dart';
+import 'package:photo_view/photo_view_gallery.dart';
 import 'package:provider/provider.dart';
 import 'package:rent_house/Models/property.dart';
 import 'package:rent_house/Providers/property_provider.dart';
-import 'package:rent_house/Providers/auth_provider.dart' as app_auth;
 import 'package:rent_house/Providers/review_provider.dart';
-import 'package:rent_house/Screens/editPropertyPage.dart';
-import 'package:rent_house/Screens/bookPostingPage.dart';
+import 'package:rent_house/Screens/book_posting_page.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:rent_house/Services/messages_service.dart';
 import 'package:rent_house/Screens/conversation_page.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:rent_house/l10n/app_localizations.dart'; // Localization
+import 'package:url_launcher/url_launcher.dart';
+
+import 'editPropertyPage.dart';
 
 class PropertyDetailsPage extends StatefulWidget {
-  static const String routeName = '/propertyDetailsRoute';
+  static const String routeName = '/property-details';
   final Property property;
 
   const PropertyDetailsPage({super.key, required this.property});
@@ -24,443 +29,490 @@ class PropertyDetailsPage extends StatefulWidget {
 
 class _PropertyDetailsPageState extends State<PropertyDetailsPage> {
   bool _isFavorite = false;
-  late final PageController _imagePageController;
   int _currentImageIndex = 0;
   bool _isMessageLoading = false;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
-    final initialProvider =
-        Provider.of<PropertyProvider>(context, listen: false);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final favs = initialProvider.favorites;
-      if (favs != null) {
-        setState(() {
-          _isFavorite = favs.any((p) => p.id == widget.property.id);
-        });
-      }
+      final provider = context.read<PropertyProvider>();
+      _isFavorite = provider.favorites.any((p) => p.id == widget.property.id);
       context.read<ReviewProvider>().loadReviews(widget.property.id);
     });
-    _imagePageController = PageController();
-  }
-
-  @override
-  void dispose() {
-    _imagePageController.dispose();
-    super.dispose();
   }
 
   Future<void> _toggleFavorite() async {
-    final propertyProvider =
-        Provider.of<PropertyProvider>(context, listen: false);
-    setState(() {
-      _isFavorite = !_isFavorite;
-    });
-    try {
-      final changed = await propertyProvider.toggleFavorite(widget.property);
-      if (!changed) {
-        setState(() {
-          _isFavorite = !_isFavorite;
-        });
-      }
-    } catch (e) {
-      setState(() {
-        _isFavorite = !_isFavorite;
-      });
-      debugPrint('Erreur toggle favorite: $e');
-    }
+    final provider = context.read<PropertyProvider>();
+    setState(() => _isFavorite = !_isFavorite);
+    final success = await provider.toggleFavorite(widget.property);
+    if (!success) setState(() => _isFavorite = !_isFavorite);
   }
 
   Future<void> _shareProperty() async {
-    try {
-      final property = widget.property;
-      final propertyLink = 'https://allobailleur.app/property/${property.id}';
-      // Note: Localization for share text inside function might be tricky without context if async gap
-      // But here we are in State, so 'context' is available (check mounted).
-      // For simplicity, we keep hardcoded or minimal text here or use context.
+    final link = 'https://allobailleur.app/property/${widget.property.id}';
+    final text =
+        '''
+🏠 ${widget.property.title}
 
-      final shareText = '''
-🏠 ${property.title}
+📍 ${widget.property.city}, ${widget.property.address ?? widget.property.district ?? ''}
+💰 ${widget.property.price.toInt()} ${widget.property.currency}/mois
 
-📍 ${property.city}, ${property.district ?? property.country}
-💰 ${property.price.toStringAsFixed(0)} ${property.currency}/mois
+${widget.property.description ?? ''}
 
-${property.description}
+🔗 $link
+    '''
+            .trim();
 
-🔗 $propertyLink
-      '''
-          .trim();
-
-      await Share.share(
-        shareText,
-        subject: property.title,
-      );
-    } catch (e) {
-      debugPrint('Erreur lors du partage: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text(
-                  AppLocalizations.of(context)?.shareError ?? 'Error sharing')),
-        );
-      }
-    }
+    await Share.share(text, subject: widget.property.title);
   }
 
-  Future<void> _handleMessageButton() async {
-    final l10n = AppLocalizations.of(context);
-    // Supabase Auth check
-    final supabaseUser = Supabase.instance.client.auth.currentUser;
-
-    if (supabaseUser == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Veuillez vous connecter pour envoyer un message.')),
-      );
-      Navigator.of(context).pushNamed('/login');
+  Future<void> _handleMessage() async {
+    final user = Supabase.instance.client.auth.currentUser;
+    if (user == null) {
+      Navigator.pushNamed(context, '/login');
       return;
     }
-
-    if (supabaseUser.id == widget.property.ownerId) {
+    if (user.id == widget.property.ownerId) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-            content:
-                Text(l10n?.selfMessageError ?? 'You cannot message yourself.')),
+        const SnackBar(
+          content: Text("Vous ne pouvez pas vous envoyer un message"),
+        ),
       );
       return;
     }
 
     setState(() => _isMessageLoading = true);
     try {
-      final conversationId = await MessagesService()
-          .getOrCreateConversation(widget.property.ownerId, widget.property.id);
-
-      if (!mounted) return;
-
-      Navigator.of(context).pushNamed(
-        ConversationPage.routeName,
-        arguments: {
-          'conversationId': conversationId,
-          'property': widget.property,
-        },
+      final convId = await MessagesService().getOrCreateConversation(
+        widget.property.ownerId,
+        widget.property.id,
       );
-    } catch (e) {
-      debugPrint('Erreur création conversation: $e');
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('${l10n?.conversationError ?? "Error"}: $e')),
+        Navigator.pushNamed(
+          context,
+          ConversationPage.routeName,
+          arguments: {'conversationId': convId, 'property': widget.property},
         );
       }
-    } finally {
+    } catch (e) {
       if (mounted) {
-        setState(() => _isMessageLoading = false);
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text('Erreur : $e')));
       }
+    } finally {
+      if (mounted) setState(() => _isMessageLoading = false);
     }
   }
 
-  Widget _featureChip(IconData icon, String label) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(
-          children: [
-            Icon(icon, size: 18),
-            const SizedBox(width: 8),
-            Text(label)
-          ],
+  void _openPhotoGallery(BuildContext context, int initialIndex) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierDismissible: true,
+        barrierColor: Colors.black.withAlpha(242), // Replace withOpacity(0.95)
+        pageBuilder: (_, __, ___) => PhotoViewGallery.builder(
+          scrollPhysics: const BouncingScrollPhysics(),
+          builder: (context, index) {
+            return PhotoViewGalleryPageOptions(
+              imageProvider: NetworkImage(widget.property.imageUrls[index]),
+              initialScale: PhotoViewComputedScale.contained,
+              minScale: PhotoViewComputedScale.contained,
+              maxScale: PhotoViewComputedScale.covered * 4,
+              heroAttributes: PhotoViewHeroAttributes(
+                tag: 'photo-$index-${widget.property.id}',
+              ),
+            );
+          },
+          itemCount: widget.property.imageUrls.length,
+          loadingBuilder: (context, event) => const Center(
+            child: CircularProgressIndicator(color: Colors.white),
+          ),
+          backgroundDecoration: const BoxDecoration(color: Colors.black),
+          pageController: PageController(initialPage: initialIndex),
+          onPageChanged: (index) => setState(() => _currentImageIndex = index),
         ),
+        transitionsBuilder: (_, animation, __, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
       ),
     );
   }
 
-  Widget _buildReviewsSection() {
-    final l10n = AppLocalizations.of(context);
-    return Consumer<ReviewProvider>(
-      builder: (context, reviewProvider, child) {
-        return Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(l10n?.reviews ?? 'Avis',
-                    style: const TextStyle(
-                        fontSize: 18, fontWeight: FontWeight.bold)),
-                TextButton(
-                  onPressed: () => _showAddReviewDialog(context),
-                  child: Text(l10n?.addReview ?? 'Ajouter un avis'),
-                ),
-              ],
-            ),
-            if (reviewProvider.isLoading)
-              const Center(child: CircularProgressIndicator())
-            else if (reviewProvider.reviews.isEmpty)
-              Text(l10n?.noReviewsYet ?? 'Aucun avis.')
-            else
-              Column(
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.star, color: Colors.amber),
-                      Text(
-                          '${reviewProvider.averageRating.toStringAsFixed(1)} (${reviewProvider.reviews.length})'),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  ...reviewProvider.reviews.map((review) => Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Text(review.userName ?? 'Anonyme',
-                                      style: const TextStyle(
-                                          fontWeight: FontWeight.bold)),
-                                  const Spacer(),
-                                  ...List.generate(
-                                      5,
-                                      (i) => Icon(
-                                            i < review.rating
-                                                ? Icons.star
-                                                : Icons.star_border,
-                                            color: Colors.amber,
-                                            size: 16,
-                                          )),
-                                ],
-                              ),
-                              if (review.comment != null) ...[
-                                const SizedBox(height: 8),
-                                Text(review.comment!),
-                              ],
-                              const SizedBox(height: 4),
-                              Text(
-                                '${review.createdAt.day}/${review.createdAt.month}/${review.createdAt.year}',
-                                style: const TextStyle(
-                                    color: Colors.grey, fontSize: 12),
-                              ),
-                            ],
-                          ),
-                        ),
-                      )),
-                ],
-              ),
-          ],
-        );
-      },
+  void _openMap() async {
+    final url = Uri.parse(
+      'https://www.google.com/maps/search/?api=1&query=${widget.property.latitude},${widget.property.longitude}',
     );
+    if (await canLaunchUrl(url)) {
+      await launchUrl(url);
+    }
   }
 
-  void _showAddReviewDialog(BuildContext context) {
+  void _showAddReviewDialog() {
     double rating = 5.0;
-    final commentController = TextEditingController();
+    final controller = TextEditingController();
 
     showDialog(
       context: context,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setState) => AlertDialog(
-          title: const Text('Ajouter un avis'),
-          content: Column(
+      builder: (_) => AlertDialog(
+        title: const Text("Votre avis"),
+        content: StatefulBuilder(
+          builder: (context, setState) => Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Text('Note:'),
+              Text("Note : ${rating.toInt()} étoile${rating > 1 ? 's' : ''}"),
               Slider(
                 value: rating,
                 min: 1,
                 max: 5,
                 divisions: 4,
-                label: rating.toString(),
-                onChanged: (value) => setState(() => rating = value),
+                onChanged: (v) => setState(() => rating = v),
               ),
               TextField(
-                controller: commentController,
-                decoration:
-                    const InputDecoration(labelText: 'Commentaire (optionnel)'),
+                controller: controller,
+                decoration: const InputDecoration(
+                  hintText: "Commentaire (facultatif)",
+                ),
                 maxLines: 3,
               ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Annuler'),
-            ),
-            TextButton(
-              onPressed: () async {
-                final success = await context.read<ReviewProvider>().addReview(
-                      widget.property.id,
-                      rating,
-                      commentController.text.isEmpty
-                          ? null
-                          : commentController.text,
-                    );
-                Navigator.of(context).pop();
-                if (success) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Avis ajouté avec succès')),
-                  );
-                } else {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                        content: Text('Erreur lors de l\'ajout de l\'avis')),
-                  );
-                }
-              },
-              child: const Text('Ajouter'),
-            ),
-          ],
         ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Annuler"),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final success = await context.read<ReviewProvider>().addReview(
+                widget.property.id,
+                rating.toInt() as double,
+                controller.text.isEmpty ? null : controller.text,
+              );
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(content: Text(success ? "Avis ajouté !" : "Erreur")),
+              );
+            },
+            child: const Text("Envoyer"),
+          ),
+        ],
       ),
+    );
+  }
+
+  Widget _buildFeatureChip(IconData icon, String label) {
+    return Chip(
+      avatar: Icon(icon, size: 16),
+      label: Text(label, style: const TextStyle(fontSize: 13)),
+      backgroundColor: Colors.grey[100],
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final l10n = AppLocalizations.of(context);
-    final displayCurrency =
-        widget.property.currency.isNotEmpty ? widget.property.currency : 'XAF';
-
-    final currentUid = Supabase.instance.client.auth.currentUser?.id;
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    final isOwner = userId == widget.property.ownerId;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.property.title),
         actions: [
-          if (currentUid != null && currentUid == widget.property.ownerId)
+          if (isOwner)
             IconButton(
               icon: const Icon(Icons.edit),
               onPressed: () async {
-                final navigator = Navigator.of(context);
-                final provider =
-                    Provider.of<PropertyProvider>(context, listen: false);
-                await navigator.push(MaterialPageRoute(
-                  builder: (_) => EditPropertyPage(property: widget.property),
-                ));
-                if (!mounted) return;
-                await provider.fetchProperties();
-                if (currentUid != null) {
-                  await provider.loadHostProperties(currentUid);
+                setState(() => _isLoading = true);
+                await Navigator.pushNamed(
+                  context,
+                  EditPropertyPage.routeName,
+                  arguments: widget.property,
+                );
+                if (mounted) {
+                  await context.read<PropertyProvider>().loadPropertiesOnce();
+                  setState(() => _isLoading = false);
                 }
               },
             ),
           IconButton(
             icon: Icon(_isFavorite ? Icons.favorite : Icons.favorite_border),
+            color: _isFavorite ? Colors.red : null,
             onPressed: _toggleFavorite,
           ),
-          IconButton(
-            icon: const Icon(Icons.share),
-            onPressed: _shareProperty,
-          ),
+          IconButton(icon: const Icon(Icons.share), onPressed: _shareProperty),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            if (widget.property.imageUrls.isNotEmpty)
-              Column(
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Hero(
-                    tag: 'property-${widget.property.id}',
-                    child: SizedBox(
-                      height: 260,
-                      child: PageView.builder(
-                        controller: _imagePageController,
-                        itemCount: widget.property.imageUrls.length,
-                        onPageChanged: (i) =>
-                            setState(() => _currentImageIndex = i),
-                        itemBuilder: (context, i) => ClipRRect(
-                          borderRadius: BorderRadius.circular(8),
-                          child: Image.network(
-                            widget.property.imageUrls[i],
-                            fit: BoxFit.cover,
-                            width: double.infinity,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  if (widget.property.imageUrls.length > 1)
-                    SizedBox(
-                      height: 88,
-                      child: ListView.builder(
-                        scrollDirection: Axis.horizontal,
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 8, vertical: 8),
-                        itemCount: widget.property.imageUrls.length,
-                        itemBuilder: (context, i) {
-                          final url = widget.property.imageUrls[i];
-                          return GestureDetector(
-                            onTap: () => _imagePageController.animateToPage(i,
-                                duration: const Duration(milliseconds: 300),
-                                curve: Curves.easeInOut),
-                            child: Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 6),
-                              width: 110,
-                              decoration: BoxDecoration(
-                                border: Border.all(
-                                  color: i == _currentImageIndex
-                                      ? Theme.of(context).colorScheme.primary
-                                      : Colors.transparent,
-                                  width: 2,
+                  // === GALERIE ZOOMABLE ===
+                  if (widget.property.imageUrls.isNotEmpty)
+                    Column(
+                      children: [
+                        GestureDetector(
+                          onTap: () =>
+                              _openPhotoGallery(context, _currentImageIndex),
+                          child: Hero(
+                            tag:
+                                'photo-$_currentImageIndex-${widget.property.id}',
+                            child: SizedBox(
+                              height: 320,
+                              width: double.infinity,
+                              child: CachedNetworkImage(
+                                imageUrl: widget
+                                    .property
+                                    .imageUrls[_currentImageIndex],
+                                fit: BoxFit.cover,
+                                placeholder: (_, __) => const Center(
+                                  child: CircularProgressIndicator(),
                                 ),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              child: ClipRRect(
-                                borderRadius: BorderRadius.circular(6),
-                                child: Image.network(url, fit: BoxFit.cover),
                               ),
                             ),
-                          );
-                        },
-                      ),
+                          ),
+                        ),
+
+                        // Miniatures
+                        if (widget.property.imageUrls.length > 1)
+                          SizedBox(
+                            height: 100,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              padding: const EdgeInsets.all(8),
+                              itemCount: widget.property.imageUrls.length,
+                              itemBuilder: (context, i) => GestureDetector(
+                                onTap: () {
+                                  setState(() => _currentImageIndex = i);
+                                  _openPhotoGallery(context, i);
+                                },
+                                child: Container(
+                                  margin: const EdgeInsets.symmetric(
+                                    horizontal: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                      color: i == _currentImageIndex
+                                          ? Colors.blue
+                                          : Colors.transparent,
+                                      width: 3,
+                                    ),
+                                  ),
+                                  child: Hero(
+                                    tag: 'photo-$i-${widget.property.id}',
+                                    child: ClipRRect(
+                                      borderRadius: BorderRadius.circular(6),
+                                      child: CachedNetworkImage(
+                                        imageUrl: widget.property.imageUrls[i],
+                                        width: 90,
+                                        height: 90,
+                                        fit: BoxFit.cover,
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    )
+                  else
+                    Container(
+                      height: 320,
+                      color: Colors.grey[300],
+                      child: const Icon(Icons.home, size: 80),
                     ),
-                ],
-              )
-            else
-              Container(height: 220, color: Colors.grey[300]),
-            const SizedBox(height: 12),
-            Text(
-              '${widget.property.price.toStringAsFixed(0)} $displayCurrency/mois',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    color: Theme.of(context).colorScheme.primary,
-                    fontWeight: FontWeight.bold,
+
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Prix & Titre
+                        Text(
+                          '${widget.property.price.toInt()} ${widget.property.currency}/mois',
+                          style: const TextStyle(
+                            fontSize: 26,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          widget.property.title,
+                          style: const TextStyle(
+                            fontSize: 22,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        GestureDetector(
+                          onTap: _openMap,
+                          child: Text(
+                            '${widget.property.city} • ${widget.property.address ?? widget.property.district ?? ''}',
+                            style: const TextStyle(
+                              color: Colors.blue,
+                              decoration: TextDecoration.underline,
+                            ),
+                          ),
+                        ),
+                        if (widget.property.distance != null)
+                          Text(
+                            '${widget.property.distance!.toStringAsFixed(1)} km de vous',
+                            style: const TextStyle(
+                              color: Colors.green,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        const SizedBox(height: 20),
+
+                        // Caractéristiques
+                        Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: [
+                            _buildFeatureChip(
+                              Icons.king_bed,
+                              '${widget.property.rooms ?? 0} chambre${widget.property.rooms == 1 ? '' : 's'}', // Fix string formatting
+                            ),
+                            _buildFeatureChip(
+                              Icons.bathtub,
+                              '${widget.property.bathrooms ?? 0} sdb',
+                            ),
+                            if (widget.property.surface != null)
+                              _buildFeatureChip(
+                                Icons.square_foot,
+                                '${widget.property.surface!.toInt()} m²',
+                              ),
+                            if (widget.property.balconies != null &&
+                                widget.property.balconies! > 0)
+                              _buildFeatureChip(
+                                Icons.balcony,
+                                '${widget.property.balconies} balcon${widget.property.balconies! > 1 ? 's' : ''}',
+                              ),
+                          ],
+                        ),
+                        const SizedBox(height: 24),
+
+                        // Description
+                        const Text(
+                          'Description',
+                          style: TextStyle(
+                            fontSize: 19,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Text(
+                          widget.property.description ?? 'Aucune description.',
+                          style: const TextStyle(height: 1.5),
+                        ),
+
+                        const SizedBox(height: 24),
+
+                        // Avis
+                        Consumer<ReviewProvider>(
+                          builder: (context, rp, child) {
+                            if (rp.isLoading)
+                              return const CircularProgressIndicator();
+                            if (rp.reviews.isEmpty) {
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  const Text(
+                                    'Avis',
+                                    style: TextStyle(
+                                      fontSize: 19,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 8),
+                                  TextButton(
+                                    onPressed: _showAddReviewDialog,
+                                    child: const Text(
+                                      'Soyez le premier à laisser un avis',
+                                    ),
+                                  ),
+                                ],
+                              );
+                            }
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Avis • ${rp.averageRating.toStringAsFixed(1)} ⭐',
+                                      style: const TextStyle(
+                                        fontSize: 19,
+                                        fontWeight: FontWeight.bold,
+                                      ),
+                                    ),
+                                    TextButton(
+                                      onPressed: _showAddReviewDialog,
+                                      child: const Text('Ajouter'),
+                                    ),
+                                  ],
+                                ),
+                                ...rp.reviews
+                                    .take(3)
+                                    .map(
+                                      (r) => Card(
+                                        child: ListTile(
+                                          leading: const CircleAvatar(
+                                            child: Icon(Icons.person),
+                                          ),
+                                          title: Text(r.userName ?? 'Anonyme'),
+                                          subtitle: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            children: [
+                                              Row(
+                                                children: List.generate(
+                                                  5,
+                                                  (i) => Icon(
+                                                    i < r.rating
+                                                        ? Icons.star
+                                                        : Icons.star_border,
+                                                    color: Colors.amber,
+                                                    size: 16,
+                                                  ),
+                                                ),
+                                              ),
+                                              if (r.comment != null)
+                                                Text(r.comment!),
+                                            ],
+                                          ),
+                                          trailing: Text(
+                                            r.createdAt.toString().split(
+                                              ' ',
+                                            )[0],
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
+                    ),
                   ),
+                ],
+              ),
             ),
-            const SizedBox(height: 8),
-            Text(
-                '${widget.property.address ?? ''} • ${widget.property.city}, ${widget.property.country}'),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                _featureChip(Icons.bed,
-                    '${widget.property.bedrooms} ${l10n?.bedrooms ?? "chambres"}'),
-                _featureChip(Icons.bathroom,
-                    '${widget.property.bathrooms} ${l10n?.bathrooms ?? "sdb"}'),
-                _featureChip(
-                    Icons.square_foot, '${widget.property.surface ?? 0} m²'),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Text(l10n?.description ?? 'Description',
-                style:
-                    const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text(widget.property.description),
-            const SizedBox(height: 16),
-            _buildReviewsSection(),
-            const SizedBox(height: 32),
-          ],
-        ),
-      ),
-      bottomNavigationBar: SafeArea(
+
+      // === BOTTOM BAR ===
+      bottomNavigationBar: BottomAppBar(
         child: Padding(
-          padding: const EdgeInsets.all(12),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           child: Row(
             children: [
               Expanded(
@@ -469,27 +521,30 @@ ${property.description}
                       ? const SizedBox(
                           width: 20,
                           height: 20,
-                          child: CircularProgressIndicator(strokeWidth: 2))
-                      : const Icon(Icons.chat_bubble_outline),
-                  onPressed: _isMessageLoading ? null : _handleMessageButton,
-                  label: Text(l10n?.sendMessage ?? 'Message'),
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.message),
+                  label: const Text('Message'),
+                  onPressed: _isMessageLoading ? null : _handleMessage,
                 ),
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: ElevatedButton(
+                child: ElevatedButton.icon(
+                  icon: const Icon(Icons.calendar_today),
+                  label: const Text('Réserver'),
                   onPressed: () {
                     final user = Supabase.instance.client.auth.currentUser;
                     if (user == null) {
-                      Navigator.of(context).pushNamed('/login');
+                      Navigator.pushNamed(context, '/login');
                     } else {
-                      Navigator.of(context).push(MaterialPageRoute(
-                        builder: (_) =>
-                            BookPostingPage(property: widget.property),
-                      ));
+                      Navigator.pushNamed(
+                        context,
+                        BookPostingPage.routeName,
+                        arguments: widget.property,
+                      );
                     }
                   },
-                  child: Text(l10n?.book ?? 'Réserver'),
                 ),
               ),
             ],

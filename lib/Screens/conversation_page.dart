@@ -10,7 +10,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 class ConversationPage extends StatefulWidget {
   static const String routeName = '/conversationPage';
 
-  const ConversationPage({super.key});
+  // Constructor now includes 'property' argument
+  final Property? property;
+
+  const ConversationPage({super.key, this.property});
 
   @override
   State<ConversationPage> createState() => _ConversationPageState();
@@ -32,14 +35,19 @@ class _ConversationPageState extends State<ConversationPage> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final args = ModalRoute.of(context)?.settings.arguments;
-    
+
     if (args is Map<String, dynamic>) {
       _conversationId = args['conversationId'] as String?;
       _property = args['property'] as Property?;
     } else if (args is Property) {
       _property = args;
     }
-    
+
+    // If property is not set from arguments, use the one from the widget
+    if (_property == null) {
+      _property = widget.property;
+    }
+
     if (_conversationId != null) {
       context.read<MessagesProvider>().selectConversation(_conversationId!);
     }
@@ -54,15 +62,17 @@ class _ConversationPageState extends State<ConversationPage> {
 
   void _sendMessage() async {
     if (_messageController.text.trim().isEmpty) return;
-    
+
     final provider = context.read<MessagesProvider>();
     final conversationId = _conversationId ?? provider.currentConversationId;
-    
+
     if (conversationId == null) return;
 
     final success = await provider.sendMessage(
-        conversationId, _messageController.text.trim());
-        
+      conversationId,
+      _messageController.text.trim(),
+    );
+
     if (success) {
       _messageController.clear();
       _scrollToBottom();
@@ -94,33 +104,36 @@ class _ConversationPageState extends State<ConversationPage> {
         title: const Text('Conversation'),
         actions: [
           if (_property != null)
-          IconButton(
-            icon: const Icon(Icons.info_outline),
-            tooltip: 'Voir le bien',
-            onPressed: () {
-                Navigator.pushNamed(context, PropertyDetailsPage.routeName,
-                    arguments: _property);
-            },
-          ),
+            IconButton(
+              icon: const Icon(Icons.info_outline),
+              tooltip: 'Voir le bien',
+              onPressed: () {
+                Navigator.pushNamed(
+                  context,
+                  PropertyDetailsPage.routeName,
+                  arguments: _property,
+                );
+              },
+            ),
         ],
       ),
       body: Column(
         children: [
           Expanded(
-            child: messages.isEmpty 
+            child: messages.isEmpty
                 ? const Center(child: Text("Dites bonjour !"))
                 : ListView.builder(
-                  controller: _scrollController,
-                  padding: const EdgeInsets.all(8),
-                  itemCount: messages.length,
-                  itemBuilder: (context, index) {
-                    final message = messages[index];
-                    // Check against Supabase ID
-                    final isMe = message.senderId == currentUserId;
-                    return _buildMessageBubble(message, isMe);
-                  },
-                  reverse: true,
-                ),
+                    controller: _scrollController,
+                    padding: const EdgeInsets.all(8),
+                    itemCount: messages.length,
+                    itemBuilder: (context, index) {
+                      final message = messages[index];
+                      // Check against Supabase ID
+                      final isMe = message.senderId == currentUserId;
+                      return _buildMessageBubble(message, isMe);
+                    },
+                    reverse: true,
+                  ),
           ),
           _buildMessageInput(),
         ],
@@ -184,8 +197,10 @@ class _ConversationPageState extends State<ConversationPage> {
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
                 ),
-                contentPadding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                contentPadding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
               ),
               maxLines: null,
               textInputAction: TextInputAction.send,

@@ -27,6 +27,7 @@ class Property {
   final double rating;
   final int reviewCount;
   final List<String> imageUrls;
+  final String? videoUrl; // Lien vers la visite vidéo
   final List<String> amenities;
   final double latitude;
   final double longitude;
@@ -42,6 +43,7 @@ class Property {
   // Compatibilité: alias pour les anciens noms utilisés dans l'UI
   int get bedrooms => rooms;
   String? get imageUrl => imageUrls.isNotEmpty ? imageUrls[0] : null;
+  String get location => city;
 
   Property({
     required this.id,
@@ -72,6 +74,7 @@ class Property {
     required this.rating,
     required this.reviewCount,
     required this.imageUrls,
+    this.videoUrl,
     required this.amenities,
     required this.latitude,
     required this.longitude,
@@ -117,8 +120,17 @@ class Property {
       conditions: data['conditions'],
       rating: (data['rating'] as num?)?.toDouble() ?? 0.0,
       reviewCount: data['reviewCount'] ?? 0,
-      imageUrls: List<String>.from(data['imageUrls'] ?? []),
-      amenities: List<String>.from(data['amenities'] ?? []),
+      imageUrls: (data['imageUrls'] as List<dynamic>?)
+              ?.whereType<String>()
+              .where((s) => s.isNotEmpty)
+              .toList() ??
+          [],
+      videoUrl: data['videoUrl'],
+      amenities: (data['amenities'] as List<dynamic>?)
+              ?.whereType<String>()
+              .where((s) => s.isNotEmpty)
+              .toList() ??
+          [],
       latitude: (data['latitude'] as num?)?.toDouble() ?? 0.0,
       longitude: (data['longitude'] as num?)?.toDouble() ?? 0.0,
       status: data['status'] ?? 'published',
@@ -160,6 +172,7 @@ class Property {
       'rating': rating,
       'reviewCount': reviewCount,
       'imageUrls': imageUrls,
+      'videoUrl': videoUrl,
       'amenities': amenities,
       'latitude': latitude,
       'longitude': longitude,
@@ -198,6 +211,7 @@ class Property {
     double? rating,
     int? reviewCount,
     List<String>? imageUrls,
+    String? videoUrl,
     List<String>? amenities,
     double? latitude,
     double? longitude,
@@ -236,6 +250,7 @@ class Property {
       rating: rating ?? this.rating,
       reviewCount: reviewCount ?? this.reviewCount,
       imageUrls: imageUrls ?? this.imageUrls,
+      videoUrl: videoUrl ?? this.videoUrl,
       amenities: amenities ?? this.amenities,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,

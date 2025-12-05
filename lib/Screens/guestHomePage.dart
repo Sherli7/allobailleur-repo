@@ -1,23 +1,24 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:supabase_flutter/supabase_flutter.dart'; // Migration vers Supabase
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:rent_house/Constants/svg_assets.dart';
 import 'package:rent_house/Screens/searchPage.dart';
-import 'package:rent_house/Screens/favoritesPage.dart';
 import 'package:rent_house/Screens/createPropertyPage.dart';
 import 'package:rent_house/Screens/viewProfilePage.dart';
 import 'package:rent_house/Screens/propertyDetailsPage.dart';
 import 'package:rent_house/Screens/loginPage.dart';
-import 'package:rent_house/Screens/bookingsPage.dart';
 import 'package:rent_house/Screens/bookPostingPage.dart';
+import 'package:rent_house/Screens/inboxPage.dart';
+import 'package:rent_house/Screens/nearbyMapPage.dart';
 import 'package:rent_house/Providers/property_provider.dart';
 import 'package:rent_house/Models/property.dart';
-import 'package:rent_house/Services/AuthService.dart'; // Import AuthService
+import 'package:rent_house/Services/AuthService.dart';
 import 'dart:math';
 import 'package:geolocator/geolocator.dart';
 import 'package:rent_house/Widgets/property_card.dart';
 import 'package:shimmer/shimmer.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:rent_house/l10n/app_localizations.dart'; // Import Localizations
+import 'package:supabase_flutter/supabase_flutter.dart' as supabase;
 
 class GuestHomePage extends StatefulWidget {
   static const String routeName = '/home';
@@ -30,23 +31,38 @@ class GuestHomePage extends StatefulWidget {
 class _GuestHomePageState extends State<GuestHomePage> {
   int _currentIndex = 0;
   late final List<Widget> _pages;
-  final List<GlobalKey<NavigatorState>> _navigatorKeys =
-      List.generate(4, (index) => GlobalKey<NavigatorState>());
-  final _supabase = Supabase.instance.client; // Client Supabase
+  final List<GlobalKey<NavigatorState>> _navigatorKeys = List.generate(
+    3,
+    (index) => GlobalKey<NavigatorState>(),
+  );
+  final FirebaseAuth _auth = FirebaseAuth.instance;
 
   @override
   void initState() {
     super.initState();
     _pages = [
       const HomeContentPage(),
-      const SearchPage(),
-      const FavoritesPage(),
-      const ViewProfilePage(),
+      const InboxPage(),
+      Builder(
+        builder: (context) {
+          final firebaseUser = _auth.currentUser;
+          final supabaseUser =
+              supabase.Supabase.instance.client.auth.currentUser;
+
+          if (firebaseUser == null && supabaseUser == null) {
+            // Redirection asynchrone pour éviter les problèmes de build
+            WidgetsBinding.instance.addPostFrameCallback((_) {
+              Navigator.pushReplacementNamed(context, LoginPage.routeName);
+            });
+            return const SizedBox(); // Retourne un widget vide temporaire
+          }
+          return const ViewProfilePage();
+        },
+      ),
     ];
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      // Migration FirebaseAuth -> Supabase
-      final userId = _supabase.auth.currentUser?.id;
+      final userId = _auth.currentUser?.uid;
       if (userId != null) {
         context.read<PropertyProvider>().loadFavorites(userId);
       }
@@ -54,32 +70,30 @@ class _GuestHomePageState extends State<GuestHomePage> {
     });
   }
 
-  // Fonction pour gérer le flux "Devenir Hôte"
   Future<void> _handleBecomeHost(BuildContext context) async {
-    final user = _supabase.auth.currentUser;
+    final user = _auth.currentUser;
+    // Note: Become Host logic might need to support Supabase user too eventually
     if (user == null) {
       Navigator.pushNamed(context, LoginPage.routeName);
       return;
     }
 
-    // Vérifier si l'utilisateur est déjà hôte (owner)
-    // On vérifie les métadonnées (mis à jour par AuthService)
-    final isHost = user.userMetadata?['isHost'] == true ||
-        user.userMetadata?['role'] == 'owner';
+    final isHost =
+        user.displayName?.contains('host') == true ||
+        user.email?.contains('owner') == true;
 
     if (isHost) {
-      // Déjà hôte -> Accès direct
       Navigator.pushNamed(context, CreatePropertyPage.routeName);
     } else {
-      // Pas encore hôte -> Modale de confirmation
       final shouldBecomeHost = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('Devenez Bailleur'),
           content: const Text(
-              'Pour publier une propriété, vous devez activer votre compte Bailleur.\n\n'
-              'Cela vous permettra de gérer vos annonces et de recevoir des réservations.\n'
-              'C\'est gratuit et instantané.'),
+            'Pour publier une propriété, vous devez activer votre compte Bailleur.\n\n'
+            'Cela vous permettra de gérer vos annonces et de recevoir des réservations.\n'
+            'C\'est gratuit et instantané.',
+          ),
           actions: [
             TextButton(
               onPressed: () => Navigator.pop(ctx, false),
@@ -88,9 +102,12 @@ class _GuestHomePageState extends State<GuestHomePage> {
             ElevatedButton(
               onPressed: () => Navigator.pop(ctx, true),
               style: ElevatedButton.styleFrom(
-                  backgroundColor: Theme.of(context).primaryColor),
-              child: const Text('Activer maintenant',
-                  style: TextStyle(color: Colors.white)),
+                backgroundColor: Theme.of(context).primaryColor,
+              ),
+              child: const Text(
+                'Activer maintenant',
+                style: TextStyle(color: Colors.white),
+              ),
             ),
           ],
         ),
@@ -98,35 +115,47 @@ class _GuestHomePageState extends State<GuestHomePage> {
 
       if (shouldBecomeHost == true) {
         try {
-          // Appel du service
           await AuthService().becomeHost();
 
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
-                  content:
-                      Text('Félicitations ! Vous êtes maintenant Bailleur.')),
+                content: Text('Félicitations ! Vous êtes maintenant Bailleur.'),
+              ),
             );
-            // Redirection
             Navigator.pushNamed(context, CreatePropertyPage.routeName);
           }
         } catch (e) {
           if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Erreur: $e')),
-            );
+            ScaffoldMessenger.of(
+              context,
+            ).showSnackBar(SnackBar(content: Text('Erreur: $e')));
           }
         }
       }
     }
   }
 
+  Future<bool> _isUserLoggedIn() async {
+    final firebaseUser = _auth.currentUser;
+    final supabaseUser = supabase.Supabase.instance.client.auth.currentUser;
+
+    if (firebaseUser != null) {
+      debugPrint('Utilisateur connecté via Firebase: ${firebaseUser.uid}');
+      return true;
+    }
+
+    if (supabaseUser != null) {
+      debugPrint('Utilisateur connecté via Supabase: ${supabaseUser.id}');
+      return true;
+    }
+
+    debugPrint('Aucun utilisateur connecté.');
+    return false;
+  }
+
   @override
   Widget build(BuildContext context) {
-    // Exemple d'utilisation de la localisation (si disponible, sinon fallback)
-    // final l10n = AppLocalizations.of(context);
-    // Pour l'instant on garde le texte en dur pour éviter les erreurs si l10n n'est pas généré
-
     return Scaffold(
       body: Stack(
         children: List.generate(_pages.length, (index) {
@@ -137,27 +166,33 @@ class _GuestHomePageState extends State<GuestHomePage> {
               onGenerateRoute: (settings) {
                 if (settings.name == Navigator.defaultRouteName) {
                   return MaterialPageRoute(
-                      builder: (_) => _pages[index], settings: settings);
+                    builder: (_) => _pages[index],
+                    settings: settings,
+                  );
                 }
                 if (settings.name == '/propertyDetails' ||
                     settings.name == PropertyDetailsPage.routeName) {
                   final prop = settings.arguments as Property?;
                   if (prop != null) {
                     return MaterialPageRoute(
-                        builder: (_) => PropertyDetailsPage(property: prop),
-                        settings: settings);
+                      builder: (_) => PropertyDetailsPage(property: prop),
+                      settings: settings,
+                    );
                   }
                 }
                 if (settings.name == BookPostingPage.routeName) {
                   final prop = settings.arguments as Property?;
                   if (prop != null) {
                     return MaterialPageRoute(
-                        builder: (_) => BookPostingPage(property: prop),
-                        settings: settings);
+                      builder: (_) => BookPostingPage(property: prop),
+                      settings: settings,
+                    );
                   }
                 }
                 return MaterialPageRoute(
-                    builder: (_) => _pages[index], settings: settings);
+                  builder: (_) => _pages[index],
+                  settings: settings,
+                );
               },
             ),
           );
@@ -165,9 +200,10 @@ class _GuestHomePageState extends State<GuestHomePage> {
       ),
       bottomNavigationBar: Container(
         decoration: BoxDecoration(
+          color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withAlpha(13),
               blurRadius: 20,
               offset: const Offset(0, -5),
             ),
@@ -178,23 +214,26 @@ class _GuestHomePageState extends State<GuestHomePage> {
           currentIndex: _currentIndex,
           backgroundColor: Colors.white,
           elevation: 0,
-          selectedLabelStyle:
-              const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
-          unselectedLabelStyle:
-              const TextStyle(fontWeight: FontWeight.w500, fontSize: 12),
-          onTap: (index) {
-            if (index == 2 || index == 3) {
-              // Vérification Auth Supabase
-              final user = _supabase.auth.currentUser;
-              if (user == null) {
+          selectedLabelStyle: const TextStyle(
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
+          unselectedLabelStyle: const TextStyle(
+            fontWeight: FontWeight.w500,
+            fontSize: 12,
+          ),
+          onTap: (index) async {
+            if (index == 2) {
+              final isLoggedIn = await _isUserLoggedIn();
+              if (!isLoggedIn) {
                 Navigator.pushNamed(context, LoginPage.routeName);
                 return;
               }
             }
             if (index == _currentIndex) {
-              _navigatorKeys[index]
-                  .currentState
-                  ?.popUntil((route) => route.isFirst);
+              _navigatorKeys[index].currentState?.popUntil(
+                (route) => route.isFirst,
+              );
             } else {
               setState(() => _currentIndex = index);
             }
@@ -203,24 +242,26 @@ class _GuestHomePageState extends State<GuestHomePage> {
           unselectedItemColor: Colors.grey[400],
           items: const [
             BottomNavigationBarItem(
-                icon: Icon(Icons.explore_outlined),
-                activeIcon: Icon(Icons.explore),
-                label: 'Explorer'),
+              icon: Icon(Icons.explore_outlined),
+              activeIcon: Icon(Icons.explore),
+              label: 'Explorer',
+            ),
             BottomNavigationBarItem(
-                icon: Icon(Icons.search), label: 'Recherche'),
+              icon: Icon(Icons.notifications_none),
+              activeIcon: Icon(Icons.notifications),
+              label: 'Notifications',
+            ),
             BottomNavigationBarItem(
-                icon: Icon(Icons.favorite_border),
-                activeIcon: Icon(Icons.favorite),
-                label: 'Favoris'),
-            BottomNavigationBarItem(
-                icon: Icon(Icons.person_outline),
-                activeIcon: Icon(Icons.person),
-                label: 'Profil'),
+              icon: Icon(Icons.person_outline),
+              activeIcon: Icon(Icons.person),
+              label: 'Profil',
+            ),
           ],
         ),
       ),
       floatingActionButton: _currentIndex == 0
           ? FloatingActionButton(
+              heroTag: 'guestHomeFab',
               onPressed: () => _handleBecomeHost(context),
               child: const Icon(Icons.add),
               tooltip: 'Publier',
@@ -230,7 +271,6 @@ class _GuestHomePageState extends State<GuestHomePage> {
   }
 }
 
-// ... Le reste de la classe HomeContentPage reste identique (je le réécris pour complétude du fichier)
 class HomeContentPage extends StatefulWidget {
   const HomeContentPage({super.key});
 
@@ -286,11 +326,16 @@ class _HomeContentPageState extends State<HomeContentPage> {
   }
 
   double _calculateDistance(
-      double lat1, double lng1, double lat2, double lng2) {
+    double lat1,
+    double lng1,
+    double lat2,
+    double lng2,
+  ) {
     const double earthRadius = 6371;
     final double dLat = (lat2 - lat1) * (pi / 180);
     final double dLng = (lng2 - lng1) * (pi / 180);
-    final double a = sin(dLat / 2) * sin(dLat / 2) +
+    final double a =
+        sin(dLat / 2) * sin(dLat / 2) +
         cos(lat1 * pi / 180) *
             cos(lat2 * pi / 180) *
             sin(dLng / 2) *
@@ -321,8 +366,6 @@ class _HomeContentPageState extends State<HomeContentPage> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    // Récupération des textes localisés (exemple)
-    // final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: Colors.grey[50],
@@ -367,11 +410,16 @@ class _HomeContentPageState extends State<HomeContentPage> {
                         // LOGO INTEGRATION
                         Row(
                           children: [
-                            SvgPicture.asset(
-                              'assets/images/logo.svg',
+                            SizedBox(
                               height: 40,
-                              colorFilter: const ColorFilter.mode(
-                                  Colors.white, BlendMode.srcIn),
+                              width: 40,
+                              child: SvgPicture.string(
+                                appLogoSvg,
+                                colorFilter: const ColorFilter.mode(
+                                  Colors.white,
+                                  BlendMode.srcIn,
+                                ),
+                              ),
                             ),
                             const SizedBox(width: 10),
                             const Text(
@@ -382,9 +430,10 @@ class _HomeContentPageState extends State<HomeContentPage> {
                                 fontWeight: FontWeight.bold,
                                 shadows: [
                                   Shadow(
-                                      color: Colors.black26,
-                                      blurRadius: 4,
-                                      offset: Offset(0, 2))
+                                    color: Colors.black26,
+                                    blurRadius: 4,
+                                    offset: Offset(0, 2),
+                                  ),
                                 ],
                               ),
                             ),
@@ -426,7 +475,7 @@ class _HomeContentPageState extends State<HomeContentPage> {
                           color: Colors.white,
                           borderRadius: BorderRadius.circular(35),
                         ),
-                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        padding: const EdgeInsets.only(left: 20, right: 8),
                         child: Row(
                           children: [
                             Icon(Icons.search, color: theme.primaryColor),
@@ -435,19 +484,39 @@ class _HomeContentPageState extends State<HomeContentPage> {
                               child: Text(
                                 'Essayez "Studio à Bastos..."',
                                 style: TextStyle(
-                                    color: Colors.grey[600], fontSize: 15),
+                                  color: Colors.grey[600],
+                                  fontSize: 15,
+                                ),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            Container(
-                              padding: const EdgeInsets.all(6),
-                              decoration: BoxDecoration(
-                                color: Colors.grey[100],
-                                shape: BoxShape.circle,
+                            // Integration de l'icône Map
+                            Tooltip(
+                              message: 'Voir la carte',
+                              child: GestureDetector(
+                                onTap: () {
+                                  Navigator.of(
+                                    context,
+                                    rootNavigator: true,
+                                  ).pushNamed(NearbyMapPage.routeName);
+                                },
+                                child: Container(
+                                  padding: const EdgeInsets.all(8),
+                                  margin: const EdgeInsets.symmetric(
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.grey[100],
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: Icon(
+                                    Icons.map_outlined,
+                                    size: 22,
+                                    color: theme.primaryColor,
+                                  ),
+                                ),
                               ),
-                              child: const Icon(Icons.tune,
-                                  size: 18, color: Colors.black87),
                             ),
                           ],
                         ),
@@ -502,8 +571,9 @@ class _HomeContentPageState extends State<HomeContentPage> {
                             ),
                             child: Icon(
                               cat['icon'],
-                              color:
-                                  isSelected ? Colors.white : Colors.grey[600],
+                              color: isSelected
+                                  ? Colors.white
+                                  : Colors.grey[600],
                               size: 24,
                             ),
                           ),
@@ -539,24 +609,30 @@ class _HomeContentPageState extends State<HomeContentPage> {
                   Text(
                     _selectedCategory == 'Tout'
                         ? 'Recommandés pour vous'
-                        : 'Nos $_selectedCategory' 's',
+                        : 'Nos $_selectedCategory'
+                              's',
                     style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.black87),
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.black87,
+                    ),
                   ),
                   if (_userLat != null)
                     Row(
                       children: [
-                        Icon(Icons.location_on,
-                            size: 14, color: theme.primaryColor),
+                        Icon(
+                          Icons.location_on,
+                          size: 14,
+                          color: theme.primaryColor,
+                        ),
                         const SizedBox(width: 4),
                         Text(
                           "Proche de moi",
                           style: TextStyle(
-                              fontSize: 12,
-                              color: theme.primaryColor,
-                              fontWeight: FontWeight.w600),
+                            fontSize: 12,
+                            color: theme.primaryColor,
+                            fontWeight: FontWeight.w600,
+                          ),
                         ),
                       ],
                     ),
@@ -574,22 +650,29 @@ class _HomeContentPageState extends State<HomeContentPage> {
 
               var properties = propertyProvider.properties ?? [];
 
+              // Calcul de la distance pour chaque propriété
+              if (_userLat != null && _userLng != null) {
+                for (var p in properties) {
+                  p.distance = _calculateDistance(
+                    _userLat!,
+                    _userLng!,
+                    p.latitude,
+                    p.longitude,
+                  );
+                }
+                // Tri par distance
+                properties.sort(
+                  (a, b) => (a.distance ?? double.infinity).compareTo(
+                    b.distance ?? double.infinity,
+                  ),
+                );
+              }
+
               // Filtrage par catégorie
               if (_selectedCategory != 'Tout') {
                 properties = properties
                     .where((p) => _mapTypeToLabel(p.type) == _selectedCategory)
                     .toList();
-              }
-
-              // Tri par distance si dispo
-              if (_userLat != null && _userLng != null) {
-                properties.sort((a, b) {
-                  final distA = _calculateDistance(
-                      _userLat!, _userLng!, a.latitude, a.longitude);
-                  final distB = _calculateDistance(
-                      _userLat!, _userLng!, b.latitude, b.longitude);
-                  return distA.compareTo(distB);
-                });
               }
 
               if (properties.isEmpty) {
@@ -599,8 +682,11 @@ class _HomeContentPageState extends State<HomeContentPage> {
                       padding: const EdgeInsets.symmetric(vertical: 50),
                       child: Column(
                         children: [
-                          Icon(Icons.home_work_outlined,
-                              size: 60, color: Colors.grey[300]),
+                          Icon(
+                            Icons.home_work_outlined,
+                            size: 60,
+                            color: Colors.grey[300],
+                          ),
                           const SizedBox(height: 16),
                           Text(
                             'Aucun bien trouvé dans cette catégorie',
@@ -614,8 +700,10 @@ class _HomeContentPageState extends State<HomeContentPage> {
               }
 
               return SliverPadding(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 16,
+                  vertical: 8,
+                ),
                 sliver: SliverGrid(
                   gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: 2,
@@ -633,8 +721,7 @@ class _HomeContentPageState extends State<HomeContentPage> {
             },
           ),
 
-          const SliverPadding(
-              padding: EdgeInsets.only(bottom: 80)), // Espace pour le FAB
+          const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
         ],
       ),
     );

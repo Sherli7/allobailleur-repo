@@ -3,7 +3,6 @@ import 'dart:typed_data';
 import 'package:firebase_auth/firebase_auth.dart' as firebase_auth;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart' show kIsWeb, debugPrint;
-import 'package:image_picker/image_picker.dart';
 import 'package:flutter_image_compress/flutter_image_compress.dart';
 import 'package:rent_house/Services/google_sign_in_wrapper.dart';
 import 'package:rent_house/Models/Users.dart' as user_model;
@@ -56,16 +55,19 @@ class AuthService {
 
       // Inscrire aussi dans Supabase Auth pour la cohérence des IDs et Policies
       try {
-          await _supabase.auth.signUp(
-            email: email,
-            password: password, // Idéalement on ne devrait pas stocker le mdp deux fois, mais ici on synchronise
-            // Si le but est une migration, c'est complexe. 
-            // Pour l'instant, on se concentre sur la DB 'users'.
-            // Mais 'becomeHost' et 'createProperty' utilisent Supabase Auth.
-            // Donc il faut un compte Supabase Auth.
-          );
+        await _supabase.auth.signUp(
+          email: email,
+          password:
+              password, // Idéalement on ne devrait pas stocker le mdp deux fois, mais ici on synchronise
+          // Si le but est une migration, c'est complexe.
+          // Pour l'instant, on se concentre sur la DB 'users'.
+          // Mais 'becomeHost' et 'createProperty' utilisent Supabase Auth.
+          // Donc il faut un compte Supabase Auth.
+        );
       } catch (e) {
-          debugPrint('Erreur création compte Supabase Auth (peut-être déjà existant): $e');
+        debugPrint(
+          'Erreur création compte Supabase Auth (peut-être déjà existant): $e',
+        );
       }
 
       // Insert user profile directly to Supabase
@@ -83,14 +85,14 @@ class AuthService {
           'isHost': role == 'owner', // Définit isHost si le rôle est owner
           'createdAt': DateTime.now().toIso8601String(),
         };
-        
+
         // On utilise upsert pour éviter les erreurs si existe déjà
         await _supabase.from('users').upsert(userMap);
       } catch (insertEx) {
         debugPrint('[AuthService] Supabase insert error: $insertEx');
         return {
           'success': false,
-          'message': 'Erreur création profil Supabase: $insertEx'
+          'message': 'Erreur création profil Supabase: $insertEx',
         };
       }
 
@@ -122,20 +124,27 @@ class AuthService {
       debugPrint('[AuthService] login called for email: $email');
       // Connexion Firebase
       final credential = await _firebaseAuth.signInWithEmailAndPassword(
-          email: email, password: password);
-          
+        email: email,
+        password: password,
+      );
+
       // Connexion Supabase (pour les tokens d'accès RLS)
       try {
-         await _supabase.auth.signInWithPassword(email: email, password: password);
+        await _supabase.auth.signInWithPassword(
+          email: email,
+          password: password,
+        );
       } catch (e) {
-         debugPrint('Erreur connexion Supabase Auth (non critique si RLS désactivé): $e');
+        debugPrint(
+          'Erreur connexion Supabase Auth (non critique si RLS désactivé): $e',
+        );
       }
-      
+
       // Mettre à jour le token FCM à la connexion
       if (credential.user != null) {
         _updateFcmToken(credential.user!.uid);
       }
-          
+
       return {'success': true, 'message': 'Connexion réussie.'};
     } catch (e, st) {
       debugPrint('[AuthService] login error: $e');
@@ -149,7 +158,10 @@ class AuthService {
     try {
       final token = await FirebaseMessaging.instance.getToken();
       if (token != null) {
-        await _supabase.from('users').update({'fcmToken': token}).eq('uid', uid);
+        await _supabase
+            .from('users')
+            .update({'fcmToken': token})
+            .eq('uid', uid);
         debugPrint('[AuthService] FCM token updated for user $uid');
       }
     } catch (e) {
@@ -169,9 +181,12 @@ class AuthService {
       final firebase_auth.User? user = userCredential.user;
 
       if (user != null) {
-        final response =
-            await _supabase.from('users').select().eq('uid', user.uid).maybeSingle();
-            
+        final response = await _supabase
+            .from('users')
+            .select()
+            .eq('uid', user.uid)
+            .maybeSingle();
+
         if (response == null) {
           final userMap = {
             'uid': user.uid,
@@ -183,7 +198,7 @@ class AuthService {
           };
           await _supabase.from('users').insert(userMap);
         }
-        
+
         _updateFcmToken(user.uid);
       }
 
@@ -193,7 +208,7 @@ class AuthService {
       debugPrint(st.toString());
       return {
         'success': false,
-        'message': 'Erreur lors de la connexion Google: $e'
+        'message': 'Erreur lors de la connexion Google: $e',
       };
     }
   }
@@ -231,7 +246,9 @@ class AuthService {
 
   /// Mettre à jour le profil utilisateur
   Future<String> updateUserProfile(
-      String uid, Map<String, dynamic> data) async {
+    String uid,
+    Map<String, dynamic> data,
+  ) async {
     try {
       await _supabase.from('users').update(data).eq('uid', uid);
       return 'Profil mis à jour avec succès.';
@@ -244,31 +261,42 @@ class AuthService {
   Future<Map<String, dynamic>> becomeHost() async {
     try {
       // On supporte Supabase Auth et Firebase Auth
-      final user = _supabase.auth.currentUser ?? 
-          ( _firebaseAuth.currentUser != null 
-             ? User(id: _firebaseAuth.currentUser!.uid, appMetadata: {}, userMetadata: {}, aud: '', createdAt: '') // Fake user for ID
-             : null
-          );
-          
-      final uid = _supabase.auth.currentUser?.id ?? _firebaseAuth.currentUser?.uid;
+      (_firebaseAuth.currentUser != null
+          ? User(
+              id: _firebaseAuth.currentUser!.uid,
+              appMetadata: {},
+              userMetadata: {},
+              aud: '',
+              createdAt: '',
+            ) // Fake user for ID
+          : null);
+
+      final uid =
+          _supabase.auth.currentUser?.id ?? _firebaseAuth.currentUser?.uid;
 
       if (uid == null) {
         return {'success': false, 'message': 'Utilisateur non connecté.'};
       }
-      
-      await _supabase.from('users').update({
-        'role': 'owner',
-        'isHost': true,
-      }).eq('uid', uid);
-      
+
+      await _supabase
+          .from('users')
+          .update({'role': 'owner', 'isHost': true})
+          .eq('uid', uid);
+
       // Refresh metadata if using Supabase Auth
       if (_supabase.auth.currentUser != null) {
-          await _supabase.auth.refreshSession();
+        await _supabase.auth.refreshSession();
       }
-      
-      return {'success': true, 'message': 'Félicitations ! Vous êtes maintenant bailleur.'};
+
+      return {
+        'success': true,
+        'message': 'Félicitations ! Vous êtes maintenant bailleur.',
+      };
     } catch (e) {
-      return {'success': false, 'message': 'Erreur lors de la mise à jour du rôle: $e'};
+      return {
+        'success': false,
+        'message': 'Erreur lors de la mise à jour du rôle: $e',
+      };
     }
   }
 
@@ -276,9 +304,12 @@ class AuthService {
   Future<user_model.User?> getUserData(String uid) async {
     try {
       debugPrint('[AuthService] fetching user data for uid: $uid');
-      final response =
-          await _supabase.from('users').select().eq('uid', uid).maybeSingle();
-      
+      final response = await _supabase
+          .from('users')
+          .select()
+          .eq('uid', uid)
+          .maybeSingle();
+
       if (response == null) {
         debugPrint('[AuthService] No user data found for uid: $uid');
         return null;
@@ -337,7 +368,9 @@ class AuthService {
 
       bytes = await _compressImage(bytes);
 
-      await _supabase.storage.from('images').uploadBinary(
+      await _supabase.storage
+          .from('images')
+          .uploadBinary(
             filePath,
             bytes,
             fileOptions: FileOptions(contentType: 'image/jpeg'),
@@ -368,12 +401,12 @@ class AuthService {
         if (bytes.length > 500 * 1024) {
           final aggressiveCompress =
               await FlutterImageCompress.compressWithList(
-            bytes,
-            minWidth: 600,
-            minHeight: 600,
-            quality: 70,
-            format: CompressFormat.jpeg,
-          );
+                bytes,
+                minWidth: 600,
+                minHeight: 600,
+                quality: 70,
+                format: CompressFormat.jpeg,
+              );
           if (aggressiveCompress.isNotEmpty &&
               aggressiveCompress.length < bytes.length) {
             return aggressiveCompress;
@@ -398,5 +431,28 @@ class AuthService {
     } catch (e) {
       return {'success': false, 'message': 'Erreur suppression compte: $e'};
     }
+  }
+
+  /// Retrieve the currently authenticated Supabase user
+  Future<User?> getSupabaseUser() async {
+    try {
+      final user = _supabase.auth.currentUser;
+      if (user != null) {
+        debugPrint('[AuthService] Supabase user found: ${user.id}');
+      } else {
+        debugPrint('[AuthService] No Supabase user found.');
+      }
+      return user;
+    } catch (e) {
+      debugPrint('[AuthService] Error retrieving Supabase user: $e');
+      return null;
+    }
+  }
+
+  AuthService() {
+    // Ajout d'un écouteur pour authStateChanges
+    authStateChanges.listen((user) {
+      print('AuthService: authStateChanges emitted user = \\$user');
+    });
   }
 }

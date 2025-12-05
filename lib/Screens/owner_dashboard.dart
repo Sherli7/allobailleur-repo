@@ -35,8 +35,12 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
       margin: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
       child: ListTile(
         leading: p.imageUrls.isNotEmpty
-            ? Image.network(p.imageUrls.first,
-                width: 64, height: 64, fit: BoxFit.cover)
+            ? Image.network(
+                p.imageUrls.first,
+                width: 64,
+                height: 64,
+                fit: BoxFit.cover,
+              )
             : Container(width: 64, height: 64, color: Colors.grey[200]),
         title: Text(p.title),
         subtitle: Text('${p.city} • ${p.price.toStringAsFixed(0)}'),
@@ -46,30 +50,40 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
             if (value == 'mark_rented') {
               final ok = await provider.completeRental(p);
               if (mounted) {
-                messenger.showSnackBar(SnackBar(
-                    content: Text(ok ? 'Annonce marquée louée' : "Échec")));
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(ok ? 'Annonce marquée louée' : "Échec"),
+                  ),
+                );
               }
             } else if (value == 'restore') {
               final ok = await provider.restoreProperty(p);
               if (mounted) {
-                messenger.showSnackBar(SnackBar(
-                    content: Text(ok ? 'Annonce remise en ligne' : "Échec")));
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(ok ? 'Annonce remise en ligne' : "Échec"),
+                  ),
+                );
               }
             } else if (value == 'delete') {
               final res = await provider.deleteProperty(p.id);
-              if (res['success'] == true) {
+              if (res) {
                 // reload provider lists via its methods
                 final uid = FirebaseAuth.instance.currentUser?.uid;
                 if (uid != null) await provider.loadHostProperties(uid);
                 await provider.fetchProperties();
                 if (mounted) {
                   messenger.showSnackBar(
-                      const SnackBar(content: Text('Annonce supprimée')));
+                    const SnackBar(content: Text('Annonce supprimée')),
+                  );
                 }
               } else {
                 if (mounted) {
-                  messenger.showSnackBar(SnackBar(
-                      content: Text('Erreur: ${res['message'] ?? ''}')));
+                  messenger.showSnackBar(
+                    const SnackBar(
+                      content: Text('Erreur lors de la suppression'),
+                    ),
+                  );
                 }
               }
             } else if (value == 'edit') {
@@ -82,10 +96,14 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
           itemBuilder: (context) => [
             if (p.status != 'rented')
               const PopupMenuItem(
-                  value: 'mark_rented', child: Text('Marquer loué')),
+                value: 'mark_rented',
+                child: Text('Marquer loué'),
+              ),
             if (p.status == 'rented')
               const PopupMenuItem(
-                  value: 'restore', child: Text('Remettre en ligne')),
+                value: 'restore',
+                child: Text('Remettre en ligne'),
+              ),
             const PopupMenuItem(value: 'edit', child: Text('Éditer')),
             const PopupMenuItem(value: 'delete', child: Text('Supprimer')),
           ],
@@ -106,7 +124,7 @@ class _OwnerDashboardState extends State<OwnerDashboard> {
               setState(() => _loading = true);
               await _load();
             },
-          )
+          ),
         ],
       ),
       body: Consumer<PropertyProvider>(

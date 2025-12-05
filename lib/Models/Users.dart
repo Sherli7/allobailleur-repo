@@ -14,6 +14,10 @@ class User {
   final DateTime createdAt;
   final DateTime? updatedAt;
   final bool hasActiveSubscription; // Pour les hôtes
+  final bool isVerified; // Badge de vérification (KYC)
+  final String? kycStatus; // 'pending', 'verified', 'rejected', null
+  final String id; // Unique identifier for the user
+  final String? profilePicture; // URL of the user's profile picture
 
   User({
     required this.uid,
@@ -29,6 +33,10 @@ class User {
     required this.createdAt,
     this.updatedAt,
     this.hasActiveSubscription = false,
+    this.isVerified = false,
+    this.kycStatus,
+    required this.id, // Ensure `id` is passed to the constructor
+    this.profilePicture, // Ensure `profilePicture` is optional
   });
 
   String get fullName => '$firstName $lastName';
@@ -47,6 +55,10 @@ class User {
     DateTime? createdAt,
     DateTime? updatedAt,
     bool? hasActiveSubscription,
+    bool? isVerified,
+    String? kycStatus,
+    String? id,
+    String? profilePicture,
   }) {
     return User(
       uid: uid ?? this.uid,
@@ -63,6 +75,10 @@ class User {
       updatedAt: updatedAt ?? this.updatedAt,
       hasActiveSubscription:
           hasActiveSubscription ?? this.hasActiveSubscription,
+      isVerified: isVerified ?? this.isVerified,
+      kycStatus: kycStatus ?? this.kycStatus,
+      id: id ?? this.id,
+      profilePicture: profilePicture ?? this.profilePicture,
     );
   }
 
@@ -81,6 +97,10 @@ class User {
       'createdAt': createdAt.toIso8601String(),
       'updatedAt': updatedAt?.toIso8601String(),
       'hasActiveSubscription': hasActiveSubscription,
+      'isVerified': isVerified,
+      'kycStatus': kycStatus,
+      'id': id,
+      'profilePicture': profilePicture,
     };
   }
 
@@ -103,9 +123,14 @@ class User {
       createdAt: map['createdAt'] != null
           ? DateTime.parse(map['createdAt'])
           : DateTime.now(),
-      updatedAt:
-          map['updatedAt'] != null ? DateTime.parse(map['updatedAt']) : null,
+      updatedAt: map['updatedAt'] != null
+          ? DateTime.parse(map['updatedAt'])
+          : null,
       hasActiveSubscription: map['hasActiveSubscription'] ?? false,
+      isVerified: map['isVerified'] ?? false,
+      kycStatus: map['kycStatus'],
+      id: map['id'] ?? map['uid'] ?? '',
+      profilePicture: map['profilePicture'],
     );
   }
 
@@ -126,6 +151,6 @@ class User {
 
   @override
   String toString() {
-    return 'User(uid: $uid, email: $email, firstName: $firstName, lastName: $lastName, profileImageUrl: $profileImageUrl, isHost: $isHost, city: $city, country: $country, bio: $bio, createdAt: $createdAt, updatedAt: $updatedAt)';
+    return 'User(uid: $uid, email: $email, firstName: $firstName, lastName: $lastName, profileImageUrl: $profileImageUrl, isHost: $isHost, city: $city, country: $country, bio: $bio, createdAt: $createdAt, updatedAt: $updatedAt, isVerified: $isVerified, kycStatus: $kycStatus, id: $id, profilePicture: $profilePicture)';
   }
 }

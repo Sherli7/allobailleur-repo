@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:rent_house/Models/property.dart';
 import 'package:table_calendar/table_calendar.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
-class BookingPage extends StatefulWidget { // Renamed from BookingsPage
+class BookingPage extends StatefulWidget {
+  // Renamed from BookingsPage
   static const String routeName = '/booking';
-  final Map<String, dynamic> property;
+  final Property property;
 
   const BookingPage({super.key, required this.property}); // Renamed
 
@@ -12,16 +13,14 @@ class BookingPage extends StatefulWidget { // Renamed from BookingsPage
   State<BookingPage> createState() => _BookingPageState(); // Renamed
 }
 
-class _BookingPageState extends State<BookingPage> { // Renamed
-  final _supabase = Supabase.instance.client;
+class _BookingPageState extends State<BookingPage> {
+  // Renamed
   CalendarFormat _calendarFormat = CalendarFormat.month;
   DateTime _focusedDay = DateTime.now();
   DateTime? _selectedDay;
   DateTime? _rangeStart;
   DateTime? _rangeEnd;
-  bool _isIndefinite = false; 
-
-  final Set<DateTime> _bookedDates = {}; 
+  bool _isIndefinite = false;
 
   @override
   void initState() {
@@ -42,7 +41,7 @@ class _BookingPageState extends State<BookingPage> { // Renamed
       setState(() {
         _selectedDay = selectedDay;
         _focusedDay = focusedDay;
-        _rangeStart = null; 
+        _rangeStart = null;
         _rangeEnd = null;
       });
     }
@@ -58,16 +57,16 @@ class _BookingPageState extends State<BookingPage> { // Renamed
   }
 
   double _calculateTotalPrice() {
-    double price = widget.property['price']?.toDouble() ?? 0.0;
+    double price = widget.property.price;
     if (_isIndefinite) {
-      double deposit = widget.property['deposit']?.toDouble() ?? 0.0;
-      return price + deposit; 
+      double deposit = widget.property.deposit ?? 0.0;
+      return price + deposit;
     }
 
     if (_rangeStart != null && _rangeEnd != null) {
       int days = _rangeEnd!.difference(_rangeStart!).inDays + 1;
       if (days < 30) {
-        return (price / 30) * days; 
+        return (price / 30) * days;
       } else {
         return price * (days / 30);
       }
@@ -119,28 +118,27 @@ class _BookingPageState extends State<BookingPage> { // Renamed
                   Row(
                     children: [
                       Checkbox(
-                        value: _isIndefinite, 
-                        onChanged: (val) {
-                          setState(() {
-                            _isIndefinite = val ?? false;
-                            if (_isIndefinite) {
-                              _rangeStart = DateTime.now();
-                              _rangeEnd = null;
-                            } else {
-                              _rangeStart = null;
-                            }
-                          });
-                        }
-                      ),
+                          value: _isIndefinite,
+                          onChanged: (val) {
+                            setState(() {
+                              _isIndefinite = val ?? false;
+                              if (_isIndefinite) {
+                                _rangeStart = DateTime.now();
+                                _rangeEnd = null;
+                              } else {
+                                _rangeStart = null;
+                              }
+                            });
+                          }),
                       const Text('Location longue durée (Indéterminée)'),
                     ],
                   ),
                   const SizedBox(height: 16),
                   if (_rangeStart != null || _isIndefinite) ...[
                     Text(
-                      _isIndefinite 
-                        ? 'Début du bail: ${_rangeStart.toString().split(' ')[0]}'
-                        : 'Du: ${_rangeStart.toString().split(' ')[0]}',
+                      _isIndefinite
+                          ? 'Début du bail: ${_rangeStart.toString().split(' ')[0]}'
+                          : 'Du: ${_rangeStart.toString().split(' ')[0]}',
                       style: const TextStyle(fontSize: 16),
                     ),
                     if (!_isIndefinite && _rangeEnd != null)
@@ -148,32 +146,37 @@ class _BookingPageState extends State<BookingPage> { // Renamed
                         'Au: ${_rangeEnd.toString().split(' ')[0]}',
                         style: const TextStyle(fontSize: 16),
                       ),
-                    
-                    const Spacer(), 
-
+                    const Spacer(),
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            const Text('Total estimé :', style: TextStyle(fontWeight: FontWeight.bold)),
+                            const Text('Total estimé :',
+                                style: TextStyle(fontWeight: FontWeight.bold)),
                             Text(
                               '${_calculateTotalPrice().toStringAsFixed(0)} XAF',
-                              style: const TextStyle(fontSize: 20, color: Colors.blue),
+                              style: const TextStyle(
+                                  fontSize: 20, color: Colors.blue),
                             ),
                             if (_isIndefinite)
-                              const Text('(1er mois + Caution)', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                              const Text('(1er mois + Caution)',
+                                  style: TextStyle(
+                                      fontSize: 10, color: Colors.grey)),
                           ],
                         ),
                         ElevatedButton(
                           onPressed: () {
                             ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Demande de réservation envoyée !')),
+                              const SnackBar(
+                                  content:
+                                      Text('Demande de réservation envoyée !')),
                             );
                           },
                           style: ElevatedButton.styleFrom(
-                            padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 32, vertical: 12),
                           ),
                           child: const Text('Réserver'),
                         ),

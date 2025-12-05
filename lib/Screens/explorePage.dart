@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:rent_house/Screens/viewPostingPage.dart';
+import 'package:rent_house/Screens/searchPage.dart';
 import 'package:rent_house/Views/gridWidets.dart';
+import 'package:rent_house/Screens/nearbyMapPage.dart';
 
 class ExplorePage extends StatefulWidget {
   const ExplorePage({super.key});
@@ -12,30 +14,38 @@ class ExplorePage extends StatefulWidget {
 class MyExplorePageState extends State<ExplorePage> {
   @override
   Widget build(BuildContext context) {
-    return Column(  // Column borné comme body principal (standard pour Scaffold)
+    return Column(
       children: [
-        // Header avec padding spécifique
         Padding(
-          padding: const EdgeInsets.fromLTRB(25, 25, 25, 10),  // Padding localisé
-          child: const TextField(
+          padding: const EdgeInsets.fromLTRB(25, 25, 25, 10),
+          child: TextField(
+            readOnly: true,
+            onTap: () {
+              Navigator.pushNamed(context, SearchPage.routeName);
+            },
             decoration: InputDecoration(
-              hintText: 'Search',
-              prefixIcon: Icon(Icons.search),
-              border: OutlineInputBorder(
+              hintText: 'Rechercher',
+              prefixIcon: const Icon(Icons.search),
+              suffixIcon: IconButton(
+                icon: const Icon(Icons.map_outlined),
+                onPressed: () {
+                  Navigator.pushNamed(context, NearbyMapPage.routeName);
+                },
+                tooltip: 'Voir la carte',
+              ),
+              border: const OutlineInputBorder(
                 borderSide: BorderSide(color: Colors.grey, width: 2.0),
               ),
-              contentPadding: EdgeInsets.all(5.0),
+              contentPadding: const EdgeInsets.all(5.0),
             ),
-            style: TextStyle(fontSize: 20.0, color: Colors.black),
+            style: const TextStyle(fontSize: 20.0, color: Colors.black),
           ),
         ),
-        // Contenu principal : Expanded pour hauteur finie
         Expanded(
           child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 25.0),  // Padding latéral seulement
+            padding: const EdgeInsets.symmetric(horizontal: 25.0),
             child: GridView.builder(
-              // Pas de shrinkWrap (défaut false) pour perf ; Expanded gère la hauteur
-              physics: const NeverScrollableScrollPhysics(),  // Pas de scroll si dans Tab/parent scrollable
+              physics: const NeverScrollableScrollPhysics(),
               itemCount: 4,
               gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
                 crossAxisCount: 2,

@@ -4,8 +4,8 @@ import 'package:rent_house/Models/booking.dart';
 class BookingService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
-  // Commission de la plateforme (0% — paiements de location hors plateforme)
-  static const double platformCommissionRate = 0.0;
+  // Commission de la plateforme (10%)
+  static const double platformCommissionRate = 0.10;
 
   /// Calculer les frais de plateforme et le payout de l'hôte
   static Map<String, double> calculateFees(double totalPrice) {
@@ -14,6 +14,25 @@ class BookingService {
     return {
       'platformFee': platformFee,
       'hostPayout': hostPayout,
+    };
+  }
+
+  /// Simulation de processus de paiement
+  Future<Map<String, dynamic>> processPayment({
+    required String bookingId,
+    required double amount,
+    required String method, // 'card', 'momo', 'om'
+  }) async {
+    // TODO: Intégrer Stripe, OM, MOMO ici
+    await Future.delayed(const Duration(seconds: 2)); // Simuler latence réseau
+
+    // Simuler succès (90% du temps)
+    // if (amount > 1000000) return {'success': false, 'message': 'Plafond dépassé'};
+
+    return {
+      'success': true,
+      'transactionId': 'TXN-${DateTime.now().millisecondsSinceEpoch}',
+      'message': 'Paiement de $amount FCFA effectué via $method',
     };
   }
 
@@ -229,10 +248,50 @@ class BookingService {
     }
   }
 
-  /// Annuler une réservation
+  /// Annuler une réservation avec calcul de remboursement (Politique Flexible)
+  /// Flexible : Remboursement intégral si annulé 48h avant Check-in
   Future<Map<String, dynamic>> cancelBooking(String bookingId) async {
-    return await updateBookingStatus(bookingId, 'cancelled');
+    try {
+      final booking = await getBooking(bookingId);
+      if (booking == null) return {'success': false, 'message': 'Réservation non trouvée'};
+
+      final now = DateTime.now();
+      final checkIn = booking.checkInDate;
+      double refundAmount = 0.0;
+
+      // Logique d'annulation
+      if (booking.status == 'confirmed') {
+        if (now.isBefore(checkIn.subtract(const Duration(hours: 48)))) {
+          // Plus de 48h avant : Remboursement 100% (moins frais de service éventuels si on veut)
+          refundAmount = booking.totalPrice;
+        } else if (now.isBefore(checkIn)) {
+          // Moins de 48h avant : Remboursement 50%
+          refundAmount = booking.totalPrice * 0.5;
+        } else {
+          // Après le check-in : Pas de remboursement
+          refundAmount = 0.0;
+        }
+      }
+
+      // Mettre à jour statut
+      await updateBookingStatus(bookingId, 'cancelled');
+
+      // Ici on déclencherait le remboursement via l'API de paiement
+      // await _refundPayment(booking.paymentIntentId, refundAmount);
+
+      return {
+        'success': true,
+        'message': 'Réservation annulée.',
+        'refundAmount': refundAmount,
+      };
+    } catch (e) {
+      return {
+         'success': false,
+         'message': 'Erreur annulation: $e'
+      };
+    }
   }
+
 
   /// Confirmer une réservation
   Future<Map<String, dynamic>> confirmBooking(String bookingId) async {

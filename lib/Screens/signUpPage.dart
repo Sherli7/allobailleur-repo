@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'dart:ui' show ImageFilter;
 import 'package:rent_house/Models/AppConstants.dart';
 import 'package:rent_house/Providers/auth_provider.dart' as app_auth;
 import 'package:rent_house/Screens/guestHomePage.dart';
 import 'package:rent_house/Screens/loginPage.dart';
-import 'package:rent_house/Views/text_widgets.dart';
 
 class SignUpPage extends StatefulWidget {
   static const String routeName = '/signUpPageRoute';
@@ -271,17 +269,17 @@ class _MySignUpPageState extends State<SignUpPage>
                                   label: 'Email',
                                   icon: Icons.email_outlined,
                                   keyboardType: TextInputType.emailAddress,
-                                  validator: (v) =>
-                                      !v!.contains('@') ? 'Email invalide' : null,
+                                  validator: (v) => !v!.contains('@')
+                                      ? 'Email invalide'
+                                      : null,
                                 ),
                                 _buildTextField(
                                   controller: _passwordController,
                                   label: 'Mot de passe',
                                   icon: Icons.lock_outline,
                                   isPassword: true,
-                                  validator: (v) => v!.length < 6
-                                      ? 'Min 6 caractères'
-                                      : null,
+                                  validator: (v) =>
+                                      v!.length < 6 ? 'Min 6 caractères' : null,
                                 ),
                                 Row(
                                   children: [
@@ -290,9 +288,8 @@ class _MySignUpPageState extends State<SignUpPage>
                                         controller: _cityController,
                                         label: 'Ville',
                                         icon: Icons.location_city,
-                                        validator: (v) => v!.isEmpty
-                                            ? 'Ville requise'
-                                            : null,
+                                        validator: (v) =>
+                                            v!.isEmpty ? 'Ville requise' : null,
                                       ),
                                     ),
                                     const SizedBox(width: 16),
@@ -301,9 +298,8 @@ class _MySignUpPageState extends State<SignUpPage>
                                         controller: _countryController,
                                         label: 'Pays',
                                         icon: Icons.public,
-                                        validator: (v) => v!.isEmpty
-                                            ? 'Pays requis'
-                                            : null,
+                                        validator: (v) =>
+                                            v!.isEmpty ? 'Pays requis' : null,
                                       ),
                                     ),
                                   ],
@@ -395,10 +391,10 @@ class _MySignUpPageState extends State<SignUpPage>
                                                 'Propriétaire',
                                                 style: TextStyle(
                                                   fontWeight: FontWeight.w600,
-                                                  color: _selectedRole ==
-                                                          'owner'
-                                                      ? Colors.black87
-                                                      : Colors.grey,
+                                                  color:
+                                                      _selectedRole == 'owner'
+                                                          ? Colors.black87
+                                                          : Colors.grey,
                                                 ),
                                               ),
                                             ),
@@ -414,9 +410,8 @@ class _MySignUpPageState extends State<SignUpPage>
                                   width: double.infinity,
                                   height: 56,
                                   child: ElevatedButton(
-                                    onPressed: authProvider.isLoading
-                                        ? null
-                                        : _signup,
+                                    onPressed:
+                                        authProvider.isLoading ? null : _signup,
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: primaryColor,
                                       elevation: 4,

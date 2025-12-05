@@ -25,8 +25,8 @@ CREATE TABLE IF NOT EXISTS public.users (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     uid TEXT UNIQUE NOT NULL,
     email TEXT UNIQUE NOT NULL,
-    "firstName" TEXT NOT NULL,
-    "lastName" TEXT NOT NULL,
+    "firstName" TEXT, -- Made nullable
+    "lastName" TEXT, -- Made nullable
     role TEXT DEFAULT 'tenant',
     "profileImageUrl" TEXT,
     "isHost" BOOLEAN DEFAULT false,
@@ -35,7 +35,8 @@ CREATE TABLE IF NOT EXISTS public.users (
     bio TEXT,
     "createdAt" TIMESTAMPTZ DEFAULT NOW(),
     "updatedAt" TIMESTAMPTZ,
-    "fcmToken" TEXT -- Added for Push Notifications
+    "fcmToken" TEXT, -- Added for Push Notifications
+    "kycStatus" TEXT DEFAULT 'unverified' -- can be: unverified, pending, verified, rejected
 );
 
 -- Ensure new columns exist for users (safe update)
@@ -43,6 +44,9 @@ DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'fcmToken') THEN
         ALTER TABLE public.users ADD COLUMN "fcmToken" TEXT;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'users' AND column_name = 'kycStatus') THEN
+        ALTER TABLE public.users ADD COLUMN "kycStatus" TEXT DEFAULT 'unverified';
     END IF;
 END $$;
 
@@ -125,7 +129,7 @@ CREATE TABLE IF NOT EXISTS public.reviews (
     "userId" TEXT NOT NULL REFERENCES users(uid),
     rating NUMERIC NOT NULL,
     comment TEXT,
-    "createdAt" TIMESTAMPTZ DEFAULT NOW()
+    "createdAt" TIMESTAMpTZ DEFAULT NOW()
 );
 
 -- Create images table
@@ -173,8 +177,56 @@ CREATE TABLE IF NOT EXISTS public.messages (
     "createdAt" TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- NEW: TICKET SYSTEM TABLES
+-- Create tickets table
+CREATE TABLE IF NOT EXISTS public.tickets (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    "userId" TEXT NOT NULL REFERENCES users(uid),
+    "propertyId" UUID NOT NULL REFERENCES properties(id),
+    "hostId" TEXT NOT NULL REFERENCES users(uid),
+    title TEXT NOT NULL,
+    description TEXT NOT NULL,
+    status TEXT DEFAULT 'open', -- e.g., open, in_progress, resolved, closed
+    priority TEXT DEFAULT 'medium', -- e.g., low, medium, high
+    images TEXT[],
+    "createdAt" TIMESTAMPTZ DEFAULT NOW(),
+    "updatedAt" TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Create ticket_comments table
+CREATE TABLE IF NOT EXISTS public.ticket_comments (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    "ticketId" UUID NOT NULL REFERENCES tickets(id) ON DELETE CASCADE,
+    "userId" TEXT NOT NULL REFERENCES users(uid),
+    content TEXT NOT NULL,
+    "createdAt" TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- NEW: Function and Trigger to create user profile on sign up
+-- This function will be called by the trigger below
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.users (uid, email)
+  VALUES (new.id::text, new.email);
+  RETURN new;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- This trigger will call the function when a new user is created in auth.users
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users; -- Drop if it exists to avoid errors
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+
+-- Helper function to check user's host status
+CREATE OR REPLACE FUNCTION is_host(user_uid TEXT)
+RETURNS BOOLEAN AS $$
+  SELECT "isHost" FROM public.users WHERE uid = user_uid;
+$$ LANGUAGE sql SECURITY DEFINER;
+
 -- Enable Row Level Security (RLS)
-ALTER TABLE public.users DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.properties ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.favorites ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.bookings ENABLE ROW LEVEL SECURITY;
@@ -183,8 +235,13 @@ ALTER TABLE public.images ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.subscriptions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.conversations ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.tickets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.ticket_comments ENABLE ROW LEVEL SECURITY;
 
 -- Drop existing policies if they exist to recreate them
+DROP POLICY IF EXISTS "Users can view their own data" ON public.users;
+DROP POLICY IF EXISTS "Users can update their own data" ON public.users;
+
 DROP POLICY IF EXISTS "Anyone can view published properties" ON public.properties;
 DROP POLICY IF EXISTS "Owners can view own properties" ON public.properties;
 DROP POLICY IF EXISTS "Owners can create properties" ON public.properties;
@@ -213,104 +270,105 @@ DROP POLICY IF EXISTS "Users can update their conversations" ON public.conversat
 DROP POLICY IF EXISTS "Users can view messages" ON public.messages;
 DROP POLICY IF EXISTS "Users can insert messages" ON public.messages;
 
+-- Drop Ticket Policies
+DROP POLICY IF EXISTS "Users can manage their own tickets" ON public.tickets;
+DROP POLICY IF EXISTS "Hosts can view tickets for their properties" ON public.tickets;
+DROP POLICY IF EXISTS "Users can manage comments on their tickets" ON public.ticket_comments;
+
+-- Create policies for users
+CREATE POLICY "Users can view their own data" ON public.users
+    FOR SELECT USING (uid = auth.uid()::text);
+CREATE POLICY "Users can update their own data" ON public.users
+    FOR UPDATE USING (uid = auth.uid()::text);
+
 -- Create policies for properties
 CREATE POLICY "Anyone can view published properties" ON public.properties
     FOR SELECT USING (status != 'rented' AND "isAvailable" = true);
 
 CREATE POLICY "Owners can view own properties" ON public.properties
-    FOR SELECT USING (true); 
-
+    FOR SELECT USING ("ownerId" = auth.uid()::text); 
+    
 CREATE POLICY "Owners can create properties" ON public.properties
-    FOR INSERT WITH CHECK (true);
+    FOR INSERT WITH CHECK (
+      "ownerId" = auth.uid()::text AND
+      is_host(auth.uid()::text)
+      -- AND (SELECT "kycStatus" FROM public.users WHERE uid = auth.uid()::text) = 'verified' -- Add this line back when KYC is ready
+    );
 
 CREATE POLICY "Owners can update own properties" ON public.properties
-    FOR UPDATE USING (true);
+    FOR UPDATE USING (
+      "ownerId" = auth.uid()::text AND
+      is_host(auth.uid()::text)
+    );
 
 CREATE POLICY "Owners can delete own properties" ON public.properties
-    FOR DELETE USING (true);
+    FOR DELETE USING (
+      "ownerId" = auth.uid()::text AND
+      is_host(auth.uid()::text)
+    );
 
 -- For favorites
 CREATE POLICY "Users can manage own favorites" ON public.favorites
-    FOR ALL USING (true);
+    FOR ALL USING ("userId" = auth.uid()::text);
 
 -- For bookings
 CREATE POLICY "Users can view own bookings" ON public.bookings
-    FOR SELECT USING (true);
+    FOR SELECT USING (guest_id = auth.uid()::text OR host_id = auth.uid()::text);
 
 CREATE POLICY "Guests can create bookings" ON public.bookings
-    FOR INSERT WITH CHECK (true);
+    FOR INSERT WITH CHECK (guest_id = auth.uid()::text);
 
 CREATE POLICY "Hosts can update bookings" ON public.bookings
-    FOR UPDATE USING (true);
+    FOR UPDATE USING (host_id = auth.uid()::text);
 
 -- For reviews
 CREATE POLICY "Anyone can view reviews" ON public.reviews
     FOR SELECT USING (true);
-
+    
 CREATE POLICY "Authenticated users can create reviews" ON public.reviews
-    FOR INSERT WITH CHECK (true);
-
+    FOR INSERT WITH CHECK (auth.role() = 'authenticated');
+    
 CREATE POLICY "Users can update own reviews" ON public.reviews
-    FOR UPDATE USING (true);
+    FOR UPDATE USING ("userId" = auth.uid()::text);
 
 -- For images
 CREATE POLICY "Anyone can view images" ON public.images
     FOR SELECT USING (true);
 
 CREATE POLICY "Authenticated users can manage images" ON public.images
-    FOR ALL USING (true);
+    FOR INSERT WITH CHECK (auth.role() = 'authenticated');
 
 -- For subscriptions
 CREATE POLICY "Users can manage own subscriptions" ON public.subscriptions
-    FOR ALL USING (true);
+    FOR ALL USING ("userId" = auth.uid()::text);
 
--- CHAT POLICIES
-
--- Conversations: Users can view if they are in participants
+-- Policies for Chat
 CREATE POLICY "Users can view their conversations" ON public.conversations
     FOR SELECT USING (auth.uid()::text = ANY(participants));
 
 CREATE POLICY "Users can insert conversations" ON public.conversations
     FOR INSERT WITH CHECK (auth.uid()::text = ANY(participants));
-    
+
 CREATE POLICY "Users can update their conversations" ON public.conversations
     FOR UPDATE USING (auth.uid()::text = ANY(participants));
 
--- Messages: Users can view messages of conversations they belong to
 CREATE POLICY "Users can view messages" ON public.messages
     FOR SELECT USING (
-        EXISTS (
-            SELECT 1 FROM public.conversations c 
-            WHERE c.id = "conversationId"
-            AND auth.uid()::text = ANY(c.participants)
+        "conversationId" IN (
+            SELECT id FROM public.conversations WHERE auth.uid()::text = ANY(participants)
         )
     );
 
 CREATE POLICY "Users can insert messages" ON public.messages
-    FOR INSERT WITH CHECK (
-        auth.uid()::text = "senderId" 
-        AND EXISTS (
-            SELECT 1 FROM public.conversations c 
-            WHERE c.id = "conversationId"
-            AND auth.uid()::text = ANY(c.participants)
-        )
-    );
+    FOR INSERT WITH CHECK ("senderId" = auth.uid()::text);
 
--- Create indexes for better performance (IF NOT EXISTS)
-CREATE INDEX IF NOT EXISTS idx_properties_city ON public.properties(city);
-CREATE INDEX IF NOT EXISTS idx_properties_price ON public.properties(price);
-CREATE INDEX IF NOT EXISTS idx_properties_status ON public.properties(status);
-CREATE INDEX IF NOT EXISTS idx_properties_owner ON public.properties("ownerId");
-CREATE INDEX IF NOT EXISTS idx_favorites_user ON public.favorites("userId");
-CREATE INDEX IF NOT EXISTS idx_favorites_property ON public.favorites("propertyId");
-CREATE INDEX IF NOT EXISTS idx_bookings_guest ON public.bookings(guest_id);
-CREATE INDEX IF NOT EXISTS idx_bookings_host ON public.bookings(host_id);
-CREATE INDEX IF NOT EXISTS idx_bookings_property ON public.bookings(property_id);
-CREATE INDEX IF NOT EXISTS idx_reviews_property ON public.reviews("propertyId");
-CREATE INDEX IF NOT EXISTS idx_images_property ON public.images("propertyId");
-CREATE INDEX IF NOT EXISTS idx_subscriptions_user ON public.subscriptions("userId");
-CREATE INDEX IF NOT EXISTS idx_properties_location ON public.properties(latitude, longitude);
 
--- Indexes for chat
-CREATE INDEX IF NOT EXISTS idx_conversations_participants ON public.conversations USING GIN(participants);
-CREATE INDEX IF NOT EXISTS idx_messages_conversation ON public.messages("conversationId");
+-- Policies for Tickets
+CREATE POLICY "Users can manage their own tickets" ON public.tickets
+    FOR ALL USING ("userId" = auth.uid()::text);
+
+CREATE POLICY "Hosts can view tickets for their properties" ON public.tickets
+    FOR SELECT USING ("hostId" = auth.uid()::text);
+
+CREATE POLICY "Users can manage comments on their tickets" ON public.ticket_comments
+    FOR ALL USING ("userId" = auth.uid()::text);
